@@ -1,5 +1,5 @@
 {
-  "name": "mailserver",
+  "name": "register-sidecar",
   "private": true,
   "scripts": {
     "build": "tsc",
