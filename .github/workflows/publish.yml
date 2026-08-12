@@ -43,9 +43,9 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.REGISTRY }}/crf-paris15/mailserver
+          images: ${{ env.REGISTRY }}/crf-paris15/register-sidecar
 
-      - name: Build and push Docker image for mailserver
+      - name: Build and push Docker image for register-sidecar
         id: push
         uses: docker/build-push-action@v7
         with:
@@ -60,6 +60,6 @@ jobs:
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v4
         with:
-          subject-name: ${{ env.REGISTRY }}/crf-paris15/mailserver
+          subject-name: ${{ env.REGISTRY }}/crf-paris15/register-sidecar
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
