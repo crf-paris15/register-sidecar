@@ -142,3 +142,5 @@ vite.config.ts.timestamp-*
 
 .pnpm-store
 .DS_Store
+
+/media/*.pdf
