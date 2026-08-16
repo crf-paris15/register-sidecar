@@ -339,6 +339,8 @@ const CORRESPONDENCE_TABLE_DOSSIER_BENEVOLE: CorrespondenceTable = {
   },
 };
 
+const API_KEY = process.env.API_KEY || "";
+
 const app = express();
 app.disable("x-powered-by");
 app.use(express.json());
@@ -350,6 +352,14 @@ app.get("/event", (req: express.Request, res: express.Response) => {
 
 app.post("/register", async (req: express.Request, res: express.Response) => {
   console.log("POST /register");
+
+  const token = req.headers["Authorization"] || req.headers["authorization"];
+
+  if (!token || token !== `Bearer ${API_KEY}`) {
+    console.log("Unauthorized");
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
 
   const dossierBenevoleFs = fs.readFileSync(
     "media/DossierBenevole_Annexes.pdf",
@@ -459,60 +469,62 @@ app.post("/register", async (req: express.Request, res: express.Response) => {
 
   // AUTORISATION PARENTALE
 
-  const autorisationParentaleForm = autorisationParentalePdf.getForm();
+  if (req.body["answers"]["Es-tu un mineur de moins de 16 ans ?"] === "Oui") {
+    const autorisationParentaleForm = autorisationParentalePdf.getForm();
 
-  fillForm(
-    autorisationParentaleForm,
-    CORRESPONDENCE_TABLE_AUTORISATION_PARTENTALE,
-    req.body["answers"],
-    computed,
-  );
+    fillForm(
+      autorisationParentaleForm,
+      CORRESPONDENCE_TABLE_AUTORISATION_PARTENTALE,
+      req.body["answers"],
+      computed,
+    );
 
-  if (
-    req.body["answers"][
-      "J'autorise le bénévole mineur à quitter seul le lieu de réalisation de l'activité"
-    ] === "Oui"
-  ) {
-    autorisationParentalePdf.getPage(0).drawLine({
-      start: { x: 138, y: 371 },
-      end: { x: 200, y: 371 },
-      thickness: 2,
-    });
-  } else {
-    autorisationParentalePdf.getPage(0).drawLine({
-      start: { x: 94, y: 371 },
-      end: { x: 130, y: 371 },
-      thickness: 2,
-      opacity: 1,
-    });
+    if (
+      req.body["answers"][
+        "J'autorise le bénévole mineur à quitter seul le lieu de réalisation de l'activité"
+      ] === "Oui"
+    ) {
+      autorisationParentalePdf.getPage(0).drawLine({
+        start: { x: 138, y: 371 },
+        end: { x: 200, y: 371 },
+        thickness: 2,
+      });
+    } else {
+      autorisationParentalePdf.getPage(0).drawLine({
+        start: { x: 94, y: 371 },
+        end: { x: 130, y: 371 },
+        thickness: 2,
+        opacity: 1,
+      });
+    }
+
+    if (
+      req.body["answers"][
+        "J'autorise un bénévole régulier de la Croix-Rouge française à raccompagner le bénévole mineur au domicile à l'issue de l'activité"
+      ] === "Oui"
+    ) {
+      autorisationParentalePdf.getPage(0).drawLine({
+        start: { x: 138, y: 344 },
+        end: { x: 200, y: 344 },
+        thickness: 2,
+      });
+    } else {
+      autorisationParentalePdf.getPage(0).drawLine({
+        start: { x: 94, y: 344 },
+        end: { x: 130, y: 344 },
+        thickness: 2,
+        opacity: 1,
+      });
+    }
+
+    autorisationParentaleForm.flatten();
+
+    const pdfBytesAutorisation = await autorisationParentalePdf.save();
+    fs.writeFileSync(
+      "media/AutorisationParentale_filled.pdf",
+      pdfBytesAutorisation,
+    );
   }
-
-  if (
-    req.body["answers"][
-      "J'autorise un bénévole régulier de la Croix-Rouge française à raccompagner le bénévole mineur au domicile à l'issue de l'activité"
-    ] === "Oui"
-  ) {
-    autorisationParentalePdf.getPage(0).drawLine({
-      start: { x: 138, y: 344 },
-      end: { x: 200, y: 344 },
-      thickness: 2,
-    });
-  } else {
-    autorisationParentalePdf.getPage(0).drawLine({
-      start: { x: 94, y: 344 },
-      end: { x: 130, y: 344 },
-      thickness: 2,
-      opacity: 1,
-    });
-  }
-
-  autorisationParentaleForm.flatten();
-
-  const pdfBytesAutorisation = await autorisationParentalePdf.save();
-  fs.writeFileSync(
-    "media/AutorisationParentale_filled.pdf",
-    pdfBytesAutorisation,
-  );
 
   // Send the filled PDF as a response
 
