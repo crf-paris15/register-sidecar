@@ -1,8 +1,10 @@
 import express from "express";
-import { PDFDocument, StandardFonts } from "pdf-lib";
+import { PDFDocument, StandardFonts } from "@cantoo/pdf-lib";
 import fs from "fs";
-import stream from "stream";
+import Database from "better-sqlite3";
 import { fillForm } from "./helpers.ts";
+
+// Types
 
 export type CorrespondenceTable = {
   [key: string]: {
@@ -15,6 +17,8 @@ export type CorrespondenceTable = {
 export type ComputedValues = {
   [key: string]: string;
 };
+
+// Correspondence tables between Google Forms and PDF form
 
 const CORRESPONDENCE_TABLE_AUTORISATION_PARTENTALE: CorrespondenceTable = {
   téléphone: {
@@ -339,19 +343,43 @@ const CORRESPONDENCE_TABLE_DOSSIER_BENEVOLE: CorrespondenceTable = {
   },
 };
 
+// Env vars
+
 const API_KEY = process.env.API_KEY || "";
+const PORT = process.env.PORT || "";
+const DOCUMENSO_API_URL = process.env.DOCUMENSO_API_URL || "";
+const DOCUMENSO_API_KEY = process.env.DOCUMENSO_API_KEY || "";
+
+// Express configuration
 
 const app = express();
 app.disable("x-powered-by");
 app.use(express.json());
 
-app.get("/event", (req: express.Request, res: express.Response) => {
-  console.log("GET /event", req.query);
-  res.status(200).json({ message: "OK" });
-});
+// DB configuration
+
+const db = new Database("db/db.sqlite");
+db.prepare(
+  `
+  CREATE TABLE IF NOT EXISTS dossiers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NOT NULL,
+    benevole_email TEXT NOT NULL,
+    benevole_url TEXT NOT NULL,
+    benevole_surname TEXT NOT NULL,
+    tuteur_email TEXT,
+    tuteur_url TEXT,
+    tuteur_name TEXT
+  )
+`,
+).run();
+
+// ----- New dossier to fill and to send to Documenso ------------------------------------------------
 
 app.post("/register", async (req: express.Request, res: express.Response) => {
   console.log("POST /register");
+
+  // Check Authorization and return a 401 if wrong
 
   const token = req.headers["Authorization"] || req.headers["authorization"];
 
@@ -361,6 +389,8 @@ app.post("/register", async (req: express.Request, res: express.Response) => {
     return;
   }
 
+  // Open PDF templates
+
   const dossierBenevoleFs = fs.readFileSync(
     "media/DossierBenevole_Annexes.pdf",
   );
@@ -369,12 +399,15 @@ app.post("/register", async (req: express.Request, res: express.Response) => {
     "media/AutorisationParentale.pdf",
   );
 
-  // Load a PDF with form fields
+  // Load PDF templates
+
   const dossierBenevolePdf = await PDFDocument.load(dossierBenevoleFs);
   const charteBenevolatPdf = await PDFDocument.load(charteBenevolatFs);
   const autorisationParentalePdf = await PDFDocument.load(
     autorisationParentaleFs,
   );
+
+  // Compute needed values
 
   const birthDate = new Date(req.body["answers"]["Ta date de naissance"]);
   const computed: ComputedValues = {
@@ -387,30 +420,63 @@ app.post("/register", async (req: express.Request, res: express.Response) => {
     emergency_contact_name_and_quality: `${req.body["answers"]["Prénom"]} ${req.body["answers"]["Nom de famille"]} (${req.body["answers"]["Lien avec toi"]})`,
     legal_guardian_name_and_firstname: `${req.body["answers"]["Prénom du titulaire de l'autorité parentale"]} ${req.body["answers"]["Nom de famille du titulaire de l'autorité parentale"]}`,
     name_and_firstname: `${req.body["answers"]["Ton prénom"]} ${req.body["answers"]["Ton nom de famille"]}`,
-    diploma_1: req.body["answers"]["Tes diplômes et certifications"][0] || "",
-    diploma_2: req.body["answers"]["Tes diplômes et certifications"][1] || "",
-    diploma_3: req.body["answers"]["Tes diplômes et certifications"][2] || "",
-    diploma_4: req.body["answers"]["Tes diplômes et certifications"][3] || "",
-    diploma_5: req.body["answers"]["Tes diplômes et certifications"][4] || "",
-    driving_licence_1: req.body["answers"]["Tes permis de conduire"][0] || "",
-    driving_licence_2: req.body["answers"]["Tes permis de conduire"][1] || "",
-    driving_licence_3: req.body["answers"]["Tes permis de conduire"][2] || "",
-    driving_licence_4: req.body["answers"]["Tes permis de conduire"][3] || "",
-    driving_licence_5: req.body["answers"]["Tes permis de conduire"][4] || "",
-    activity_1_legal_guardian:
-      req.body["answers"][
-        "Déclare l'autoriser à participer aux activités ci-dessous organisées par la Croix-Rouge française, telles qu'elles m'ont été exposées"
-      ][0] || "",
-    activity_2_legal_guardian:
-      req.body["answers"][
-        "Déclare l'autoriser à participer aux activités ci-dessous organisées par la Croix-Rouge française, telles qu'elles m'ont été exposées"
-      ][1] || "",
+    diploma_1: req.body["answers"]["Tes diplômes et certifications"]
+      ? req.body["answers"]["Tes diplômes et certifications"][0] || ""
+      : "",
+    diploma_2: req.body["answers"]["Tes diplômes et certifications"]
+      ? req.body["answers"]["Tes diplômes et certifications"][1] || ""
+      : "",
+    diploma_3: req.body["answers"]["Tes diplômes et certifications"]
+      ? req.body["answers"]["Tes diplômes et certifications"][2] || ""
+      : "",
+    diploma_4: req.body["answers"]["Tes diplômes et certifications"]
+      ? req.body["answers"]["Tes diplômes et certifications"][3] || ""
+      : "",
+    diploma_5: req.body["answers"]["Tes diplômes et certifications"]
+      ? req.body["answers"]["Tes diplômes et certifications"][4] || ""
+      : "",
+    driving_licence_1: req.body["answers"]["Tes permis de conduire"]
+      ? req.body["answers"]["Tes permis de conduire"][0] || ""
+      : "",
+    driving_licence_2: req.body["answers"]["Tes permis de conduire"]
+      ? req.body["answers"]["Tes permis de conduire"][1] || ""
+      : "",
+    driving_licence_3: req.body["answers"]["Tes permis de conduire"]
+      ? req.body["answers"]["Tes permis de conduire"][2] || ""
+      : "",
+    driving_licence_4: req.body["answers"]["Tes permis de conduire"]
+      ? req.body["answers"]["Tes permis de conduire"][3] || ""
+      : "",
+    driving_licence_5: req.body["answers"]["Tes permis de conduire"]
+      ? req.body["answers"]["Tes permis de conduire"][4] || ""
+      : "",
+    activity_1_legal_guardian: req.body["answers"][
+      "Déclare l'autoriser à participer aux activités ci-dessous organisées par la Croix-Rouge française, telles qu'elles m'ont été exposées"
+    ]
+      ? req.body["answers"][
+          "Déclare l'autoriser à participer aux activités ci-dessous organisées par la Croix-Rouge française, telles qu'elles m'ont été exposées"
+        ][0] || ""
+      : "",
+    activity_2_legal_guardian: req.body["answers"][
+      "Déclare l'autoriser à participer aux activités ci-dessous organisées par la Croix-Rouge française, telles qu'elles m'ont été exposées"
+    ]
+      ? req.body["answers"][
+          "Déclare l'autoriser à participer aux activités ci-dessous organisées par la Croix-Rouge française, telles qu'elles m'ont été exposées"
+        ][1] || ""
+      : "",
   };
 
-  // DOSSIER BENEVOLE
+  // Prepare final document
+
+  const finalPdf = await PDFDocument.create();
+  const pdfsToMerge: Array<PDFDocument> = [];
+
+  // Fill : DOSSIER BENEVOLE
+
+  const dossierBenevoleForm = dossierBenevolePdf.getForm();
 
   fillForm(
-    dossierBenevolePdf.getForm(),
+    dossierBenevoleForm,
     CORRESPONDENCE_TABLE_DOSSIER_BENEVOLE,
     req.body["answers"],
     computed,
@@ -448,10 +514,10 @@ app.post("/register", async (req: express.Request, res: express.Response) => {
     },
   );
 
-  const pdfBytes = await dossierBenevolePdf.save();
-  fs.writeFileSync("media/DossierBenevole_Annexes_filled.pdf", pdfBytes);
+  dossierBenevoleForm.flatten();
+  pdfsToMerge.push(dossierBenevolePdf);
 
-  // CHARTE BENEVOLE
+  // Fill : CHARTE BENEVOLE
 
   const charteBenevolatForm = charteBenevolatPdf.getForm();
 
@@ -463,13 +529,13 @@ app.post("/register", async (req: express.Request, res: express.Response) => {
   );
 
   charteBenevolatForm.flatten();
+  pdfsToMerge.push(charteBenevolatPdf);
 
-  const pdfBytesCharte = await charteBenevolatPdf.save();
-  fs.writeFileSync("media/CharteDuBenevolat_filled.pdf", pdfBytesCharte);
-
-  // AUTORISATION PARENTALE
+  // Check if AUTORISATION PARENTALE is needed
 
   if (req.body["answers"]["Es-tu un mineur de moins de 16 ans ?"] === "Oui") {
+    // Fill : AUTORISATION PARENTALE
+
     const autorisationParentaleForm = autorisationParentalePdf.getForm();
 
     fillForm(
@@ -478,6 +544,8 @@ app.post("/register", async (req: express.Request, res: express.Response) => {
       req.body["answers"],
       computed,
     );
+
+    // Strike relevant parts of PDF
 
     if (
       req.body["answers"][
@@ -519,30 +587,317 @@ app.post("/register", async (req: express.Request, res: express.Response) => {
 
     autorisationParentaleForm.flatten();
 
-    const pdfBytesAutorisation = await autorisationParentalePdf.save();
-    fs.writeFileSync(
-      "media/AutorisationParentale_filled.pdf",
-      pdfBytesAutorisation,
-    );
+    pdfsToMerge.push(autorisationParentalePdf);
   }
 
-  // Send the filled PDF as a response
+  // Merge all documents in one
 
-  const readStream = new stream.PassThrough();
-  readStream.end(pdfBytes);
-  res.set(
-    "Content-disposition",
-    "attachment; filename=" + "DossierBenevole.pdf",
+  for (const pdf of pdfsToMerge) {
+    const pageIndices = pdf.getPageIndices();
+    const copiedPages = await finalPdf.copyPages(pdf, pageIndices);
+    copiedPages.forEach((page) => finalPdf.addPage(page));
+  }
+
+  // Save document
+
+  const pdfFinalBytes = await finalPdf.save();
+
+  // Prepare request to Documenso
+
+  const formData = new FormData();
+  const recipients = [
+    {
+      email: req.body["answers"]["Email personnel"],
+      name: computed["name_and_firstname"],
+      role: "SIGNER",
+      sendEmail: false,
+      fields: [
+        {
+          identifier: 0,
+          type: "DATE",
+          page: 2,
+          positionX: 13,
+          positionY: 88,
+          width: 18,
+          height: 3,
+        },
+        {
+          identifier: 0,
+          type: "SIGNATURE",
+          page: 2,
+          positionX: 42,
+          positionY: 88,
+          width: 20,
+          height: 7,
+        },
+        {
+          identifier: 0,
+          type: "DATE",
+          page: 5,
+          positionX: 14,
+          positionY: 85,
+          width: 18,
+          height: 3,
+        },
+        {
+          identifier: 0,
+          type: "SIGNATURE",
+          page: 5,
+          positionX: 19,
+          positionY: 88,
+          width: 25,
+          height: 8,
+        },
+        {
+          identifier: 0,
+          type: "TEXT",
+          page: 9,
+          positionX: 14,
+          positionY: 15,
+          width: 30,
+          height: 2,
+          fieldMeta: {
+            type: "text",
+            label: "Ville",
+            placeholder: "La ville où vous vous trouvez actuellement",
+            required: true,
+          },
+        },
+        {
+          identifier: 0,
+          type: "DATE",
+          page: 9,
+          positionX: 12,
+          positionY: 17,
+          width: 10,
+          height: 2,
+        },
+        {
+          identifier: 0,
+          type: "SIGNATURE",
+          page: 9,
+          positionX: 12,
+          positionY: 38,
+          width: 25,
+          height: 8,
+        },
+      ],
+    },
+  ];
+
+  if (req.body["answers"]["Es-tu un mineur de moins de 16 ans ?"] === "Oui") {
+    recipients.push({
+      email: req.body["answers"]["Adresse mail"],
+      name: computed["legal_guardian_name_and_firstname"],
+      role: "SIGNER",
+      sendEmail: false,
+      fields: [
+        {
+          identifier: 0,
+          type: "SIGNATURE",
+          page: 9,
+          positionX: 62,
+          positionY: 44,
+          width: 25,
+          height: 8,
+        },
+        {
+          identifier: 0,
+          type: "TEXT",
+          page: 11,
+          positionX: 14,
+          positionY: 86,
+          width: 25,
+          height: 3,
+          fieldMeta: {
+            type: "text",
+            label: "Ville",
+            placeholder: "La ville où vous vous trouvez actuellement",
+            required: true,
+          },
+        },
+        {
+          identifier: 0,
+          type: "DATE",
+          page: 11,
+          positionX: 47,
+          positionY: 86,
+          width: 25,
+          height: 3,
+        },
+        {
+          identifier: 0,
+          type: "SIGNATURE",
+          page: 11,
+          positionX: 45,
+          positionY: 90,
+          width: 25,
+          height: 7,
+        },
+      ],
+    });
+  }
+
+  const payload = {
+    type: "DOCUMENT",
+    title: "Dossier bénévole de " + computed["name_and_firstname"],
+    externalId: "DossierBenevole_" + req.body["code"],
+    visibility: "EVERYONE",
+    recipients: recipients,
+    meta: {
+      subject:
+        "Croix-Rouge française de Paris 15 - Signer votre dossier bénévole",
+      message: "Bonjour, merci de relire et de signer le document.",
+      redirectUrl: "https://dossier.crf.tools/signed?code=" + req.body["code"],
+      distributionMethod: "NONE",
+    },
+  };
+
+  formData.append("payload", JSON.stringify(payload));
+  formData.append(
+    "files",
+    new File(
+      [new Blob([pdfFinalBytes], { type: "application/pdf" })],
+      `DossierBenevole_${req.body["code"]}.pdf`,
+      {
+        type: "application/pdf",
+      },
+    ),
   );
-  res.set("Content-Type", "application/pdf");
-  readStream.pipe(res);
 
-  // TODO : SEND ALL PDFS TO SIGN
+  // Send the document to Documenso
+
+  const response = await fetch(DOCUMENSO_API_URL + "envelope/create", {
+    method: "POST",
+    headers: {
+      Authorization: DOCUMENSO_API_KEY,
+    },
+    body: formData,
+  });
+
+  const { id } = (await response.json()) as { id: string };
+
+  if (response.status >= 200 && response.status < 400) {
+    // Set the document to be signed
+
+    const secondResponse = await fetch(
+      DOCUMENSO_API_URL + "envelope/distribute",
+      {
+        method: "POST",
+        headers: {
+          Authorization: DOCUMENSO_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          envelopeId: id,
+        }),
+      },
+    );
+
+    if (secondResponse.status >= 200 && secondResponse.status < 400) {
+      // Get the signing URLs for each recipient
+
+      const { recipients } = (await secondResponse.json()) as {
+        recipients: Array<{ email: string; signingUrl: string }>;
+      };
+
+      const insert = db.prepare(
+        "INSERT INTO dossiers (code, benevole_email, benevole_url, benevole_surname, tuteur_email, tuteur_url, tuteur_name) VALUES (@code, @benevole_email, @benevole_url, @benevole_surname, @tuteur_email, @tuteur_url, @tuteur_name)",
+      );
+
+      if (
+        req.body["answers"]["Email personnel"] ===
+        req.body["answers"]["Adresse mail"]
+      ) {
+        insert.run({
+          code: req.body["code"],
+          benevole_email: req.body["answers"]["Email personnel"],
+          benevole_url: recipients[0]?.signingUrl
+            ? recipients[0].signingUrl
+            : "",
+          tuteur_email: req.body["answers"]["Adresse mail"]
+            ? req.body["answers"]["Adresse mail"]
+            : null,
+          tuteur_url: recipients[1]?.signingUrl
+            ? recipients[1].signingUrl
+            : null,
+          benevole_surname: req.body["answers"]["Ton prénom"],
+          tuteur_name:
+            req.body["answers"][
+              "Nom de famille du titulaire de l'autorité parentale"
+            ] || null,
+        });
+      } else {
+        insert.run({
+          code: req.body["code"],
+          benevole_email: req.body["answers"]["Email personnel"],
+          benevole_url:
+            recipients.find(
+              (r) => r.email === req.body["answers"]["Email personnel"],
+            )?.signingUrl || "",
+          tuteur_email: req.body["answers"]["Adresse mail"]
+            ? req.body["answers"]["Adresse mail"]
+            : null,
+          tuteur_url:
+            recipients.find(
+              (r) => r.email === req.body["answers"]["Adresse mail"],
+            )?.signingUrl || null,
+          benevole_surname: req.body["answers"]["Ton prénom"],
+          tuteur_name:
+            req.body["answers"][
+              "Nom de famille du titulaire de l'autorité parentale"
+            ] || null,
+        });
+      }
+
+      res.status(200).send("OK");
+    } else {
+      res.status(400).send("KO");
+    }
+  } else {
+    res.status(400).send("KO");
+  }
 });
 
-// Health check endpoint
+// ----- Send mails to sign -------------------------------------------------
+
+app.get("/dossiers/:code", (req: express.Request, res: express.Response) => {
+  console.log("GET /dossiers/" + req.params.code);
+
+  // Check Authorization and return a 401 if wrong
+
+  const token = req.headers["authorization"] || req.headers["Authorization"];
+
+  if (!token || token !== `Bearer ${API_KEY}`) {
+    console.log("Unauthorized");
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  if (!req.params.code) {
+    res.status(400).json({ message: "Missing code" });
+    return;
+  }
+
+  const select = db.prepare(
+    "SELECT benevole_email, benevole_url, benevole_surname, tuteur_email, tuteur_url, tuteur_name FROM dossiers WHERE code = ? ORDER BY id DESC LIMIT 1",
+  );
+  const dossier = select.get(req.params.code);
+
+  if (!dossier) {
+    res.status(404).json({ message: "Dossier not found" });
+    return;
+  }
+
+  res.status(200).json(dossier);
+});
+
+// ----- Healthcheck --------------------------------------------------------
+
 app.get("/health", (_: express.Request, res: express.Response) => {
   res.status(200).send("OK");
 });
 
-app.listen(process.env.PORT ? Number(process.env.PORT) : 3003);
+// Start app
+
+app.listen(PORT ? Number(PORT) : 3003);

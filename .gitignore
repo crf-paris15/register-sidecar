@@ -144,3 +144,4 @@ vite.config.ts.timestamp-*
 .DS_Store
 
 /media/*.pdf
+/db/*

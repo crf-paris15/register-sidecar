@@ -1,54 +1,56 @@
-import express from "express";
-import { PDFTextField, PDFCheckBox, PDFForm } from "pdf-lib";
+import {
+  PDFTextField,
+  PDFCheckBox,
+  PDFForm,
+  drawCheckBox,
+  rgb,
+} from "@cantoo/pdf-lib";
 import type { CorrespondenceTable, ComputedValues } from "./app.ts";
 
-const API_KEY = process.env.API_KEY || "";
-
-export const apiKeyAuth = (req: express.Request) => {
-  const provided = req.header("x-api-key") || "";
-  return provided === API_KEY;
-};
-
-export const replacePlaceholders = (
-  template: string,
-  replacements: Record<string, string>,
-) => {
-  let result = template;
-
-  for (const [placeholder, value] of Object.entries(replacements)) {
-    const regex = new RegExp(`{{${placeholder}}}`, "g");
-    result = result.replace(regex, value);
-  }
-  return result;
-};
-
+/**
+ * Fills a PDF form with the provided answers and computed values based on the correspondence table.
+ *
+ * @param form The PDF form to fill.
+ * @param correspondenceTable The table mapping form fields to answer keys or computed values.
+ * @param answers The user's answers.
+ * @param computed The computed values.
+ */
 export const fillForm = (
   form: PDFForm,
   correspondenceTable: CorrespondenceTable,
   answers: Record<string, string>,
   computed: ComputedValues,
 ) => {
+  // Get all fields in the form and iterate over them
   form.getFields().forEach((field) => {
     const name = field.getName();
     const correspondence = correspondenceTable[name];
 
     if (correspondence) {
       let value: string | boolean | undefined;
+
       switch (correspondence.type) {
+        // Value is a variable from the answers object
         case "var":
           value =
             correspondence.var === undefined
               ? undefined
               : answers[correspondence.var];
           break;
+
+        // Value is a hardcoded string
         case "hardcoded":
           value = correspondence.value;
           break;
+
+        // Value is determined by checking if the answer matches a specific value
         case "equals":
           value =
             correspondence.var !== undefined &&
             answers[correspondence.var] === correspondence.value;
           break;
+
+        // Value is computed based on the computed values object
         case "computed":
           value =
             correspondence.var === undefined
@@ -57,11 +59,48 @@ export const fillForm = (
           break;
       }
 
+      // Set value in the form field based on its type
       if (value !== undefined && typeof value === "string") {
         (field as PDFTextField).setText(value);
       } else if (value !== undefined && typeof value === "boolean") {
         if (value) {
           (field as PDFCheckBox).check();
+        } else {
+          (field as PDFCheckBox).uncheck();
+        }
+
+        // Trick to force the checkbox to update its appearance after being checked and PDF flatten.
+        if ((field as PDFCheckBox).isChecked()) {
+          (field as PDFCheckBox).updateAppearances(() => {
+            return {
+              normal: {
+                on: drawCheckBox({
+                  color: rgb(0, 0, 0.5),
+                  filled: true,
+                  x: 0 + 1,
+                  y: 0 + 1,
+                  width: 20,
+                  height: 20,
+                  thickness: 1.5,
+                  borderWidth: 2,
+                  markColor: rgb(0, 0, 0.5),
+                  borderColor: rgb(0, 0, 0.5),
+                }),
+                off: drawCheckBox({
+                  color: rgb(0, 0, 0.5),
+                  filled: true,
+                  x: 0 + 1,
+                  y: 0 + 1,
+                  width: 20,
+                  height: 20,
+                  thickness: 1.5,
+                  borderWidth: 2,
+                  markColor: rgb(0, 0, 0.5),
+                  borderColor: rgb(0, 0, 0.5),
+                }),
+              },
+            };
+          });
         }
       }
     }
