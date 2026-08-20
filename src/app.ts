@@ -2,7 +2,7 @@ import express from "express";
 import { PDFDocument, StandardFonts } from "@cantoo/pdf-lib";
 import fs from "fs";
 import Database from "better-sqlite3";
-import { fillForm } from "./helpers.ts";
+import { fillForm, verifySecret } from "./helpers.ts";
 
 // Types
 
@@ -369,21 +369,22 @@ db.prepare(
     benevole_surname TEXT NOT NULL,
     tuteur_email TEXT,
     tuteur_url TEXT,
-    tuteur_name TEXT
+    tuteur_name TEXT,
+    documenso_id TEXT,
+    document_signed INTEGER DEFAULT 0,
+    activity TEXT
   )
 `,
 ).run();
 
-// ----- New dossier to fill and to send to Documenso ------------------------------------------------
+// ----- New dossier to fill and to send to Documenso -----------------------
 
 app.post("/register", async (req: express.Request, res: express.Response) => {
   console.log("POST /register");
 
   // Check Authorization and return a 401 if wrong
 
-  const token = req.headers["Authorization"] || req.headers["authorization"];
-
-  if (!token || token !== `Bearer ${API_KEY}`) {
+  if (!verifySecret(req.headers["authorization"] as string, API_KEY)) {
     console.log("Unauthorized");
     res.status(401).json({ message: "Unauthorized" });
     return;
@@ -757,7 +758,7 @@ app.post("/register", async (req: express.Request, res: express.Response) => {
   formData.append(
     "files",
     new File(
-      [new Blob([pdfFinalBytes], { type: "application/pdf" })],
+      [new Blob([new Uint8Array(pdfFinalBytes)], { type: "application/pdf" })],
       `DossierBenevole_${req.body["code"]}.pdf`,
       {
         type: "application/pdf",
@@ -802,7 +803,7 @@ app.post("/register", async (req: express.Request, res: express.Response) => {
       };
 
       const insert = db.prepare(
-        "INSERT INTO dossiers (code, benevole_email, benevole_url, benevole_surname, tuteur_email, tuteur_url, tuteur_name) VALUES (@code, @benevole_email, @benevole_url, @benevole_surname, @tuteur_email, @tuteur_url, @tuteur_name)",
+        "INSERT INTO dossiers (code, benevole_email, benevole_url, benevole_surname, tuteur_email, tuteur_url, tuteur_name, document_signed, documenso_id, activity) VALUES (@code, @benevole_email, @benevole_url, @benevole_surname, @tuteur_email, @tuteur_url, @tuteur_name, 0, @documenso_id, @activity)",
       );
 
       if (
@@ -815,17 +816,22 @@ app.post("/register", async (req: express.Request, res: express.Response) => {
           benevole_url: recipients[0]?.signingUrl
             ? recipients[0].signingUrl
             : "",
+          benevole_surname: req.body["answers"]["Ton prénom"],
           tuteur_email: req.body["answers"]["Adresse mail"]
             ? req.body["answers"]["Adresse mail"]
             : null,
           tuteur_url: recipients[1]?.signingUrl
             ? recipients[1].signingUrl
             : null,
-          benevole_surname: req.body["answers"]["Ton prénom"],
           tuteur_name:
             req.body["answers"][
               "Nom de famille du titulaire de l'autorité parentale"
             ] || null,
+          documenso_id: id,
+          activity:
+            req.body["answers"][
+              "Ta future activité principale à l'Unité locale"
+            ],
         });
       } else {
         insert.run({
@@ -835,6 +841,7 @@ app.post("/register", async (req: express.Request, res: express.Response) => {
             recipients.find(
               (r) => r.email === req.body["answers"]["Email personnel"],
             )?.signingUrl || "",
+          benevole_surname: req.body["answers"]["Ton prénom"],
           tuteur_email: req.body["answers"]["Adresse mail"]
             ? req.body["answers"]["Adresse mail"]
             : null,
@@ -842,11 +849,15 @@ app.post("/register", async (req: express.Request, res: express.Response) => {
             recipients.find(
               (r) => r.email === req.body["answers"]["Adresse mail"],
             )?.signingUrl || null,
-          benevole_surname: req.body["answers"]["Ton prénom"],
           tuteur_name:
             req.body["answers"][
               "Nom de famille du titulaire de l'autorité parentale"
             ] || null,
+          documenso_id: id,
+          activity:
+            req.body["answers"][
+              "Ta future activité principale à l'Unité locale"
+            ],
         });
       }
 
@@ -859,16 +870,14 @@ app.post("/register", async (req: express.Request, res: express.Response) => {
   }
 });
 
-// ----- Send mails to sign -------------------------------------------------
+// ----- Send data to send mails to sign ------------------------------------
 
 app.get("/dossiers/:code", (req: express.Request, res: express.Response) => {
   console.log("GET /dossiers/" + req.params.code);
 
   // Check Authorization and return a 401 if wrong
 
-  const token = req.headers["authorization"] || req.headers["Authorization"];
-
-  if (!token || token !== `Bearer ${API_KEY}`) {
+  if (!verifySecret(req.headers["authorization"] as string, API_KEY)) {
     console.log("Unauthorized");
     res.status(401).json({ message: "Unauthorized" });
     return;
@@ -880,7 +889,7 @@ app.get("/dossiers/:code", (req: express.Request, res: express.Response) => {
   }
 
   const select = db.prepare(
-    "SELECT benevole_email, benevole_url, benevole_surname, tuteur_email, tuteur_url, tuteur_name FROM dossiers WHERE code = ? ORDER BY id DESC LIMIT 1",
+    "SELECT benevole_email, benevole_url, benevole_surname, benevole_signed, tuteur_email, tuteur_url, tuteur_name, tuteur_signed FROM dossiers WHERE code = ? ORDER BY id DESC LIMIT 1",
   );
   const dossier = select.get(req.params.code);
 
@@ -890,6 +899,83 @@ app.get("/dossiers/:code", (req: express.Request, res: express.Response) => {
   }
 
   res.status(200).json(dossier);
+});
+
+// ----- Mark a PDF as signed -----------------------------------------------
+
+app.post("/signed", (req: express.Request, res: express.Response) => {
+  console.log("POST /signed");
+
+  // Check Authorization and return a 401 if wrong
+
+  if (!verifySecret(req.headers["x-documenso-secret"] as string, API_KEY)) {
+    console.log("Unauthorized");
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  if (!req.body["payload"] || !req.body["payload"]["documentDataId"]) {
+    console.log("Missing documentDataId");
+    res.status(400).json({ message: "Missing documentDataId" });
+    return;
+  }
+
+  const select = db.prepare(
+    "SELECT COUNT(*) AS count FROM dossiers WHERE documenso_id = ? ORDER BY id DESC LIMIT 1",
+  );
+
+  const nb = select.get(req.body["payload"]["documentDataId"]);
+
+  if (nb.count === 0) {
+    console.log("Dossier not found");
+    res.status(404).json({ message: "Dossier not found" });
+    return;
+  }
+
+  const update = db.prepare(
+    "UPDATE dossiers SET document_signed = 1 WHERE documenso_id = ? ORDER BY id DESC LIMIT 1",
+  );
+  update.run(req.body["payload"]["documentDataId"]);
+
+  res.status(200).send("OK");
+});
+
+// ----- Check if PDF is signed ---------------------------------------------
+
+app.get("/check", (req: express.Request, res: express.Response) => {
+  console.log("GET /check/" + req.query.id);
+
+  // Check Authorization and return a 401 if wrong
+
+  if (!verifySecret(req.headers["authorization"] as string, API_KEY)) {
+    console.log("Unauthorized");
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  if (!req.query.id) {
+    console.log("Missing id");
+    res.status(400).json({ message: "Missing id" });
+    return;
+  }
+
+  const select = db.prepare(
+    "SELECT document_signed, activity FROM dossiers WHERE documenso_id = ? ORDER BY id DESC LIMIT 1",
+  );
+
+  const dossier = select.get(req.query.id);
+
+  if (!dossier) {
+    console.log("Dossier not found");
+    res.status(404).json({ message: "Dossier not found" });
+    return;
+  }
+
+  res.status(200).json({
+    id: req.query.id,
+    signed: dossier.document_signed === 1,
+    activity: dossier.activity,
+  });
 });
 
 // ----- Healthcheck --------------------------------------------------------
