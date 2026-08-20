@@ -354,6 +354,7 @@ const LOCK_URL = process.env.LOCK_URL || "";
 const LOCK_API_KEY = process.env.LOCK_API_KEY || "";
 const LOCK_GROUP_ID = process.env.LOCK_GROUP_ID || "";
 const LOCK_ID = process.env.LOCK_ID || "";
+const DB_PATH = process.env.DB_PATH || "";
 
 // Express configuration
 
@@ -363,7 +364,7 @@ app.use(express.json());
 
 // DB configuration
 
-const db = new Database("db/db.sqlite");
+const db = new Database(DB_PATH + "db/db.sqlite");
 db.prepare(
   `
   CREATE TABLE IF NOT EXISTS dossiers (
