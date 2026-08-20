@@ -15,6 +15,7 @@
     "better-sqlite3": "^13.0.3",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "libphonenumber-js": "^1.13.11",
     "postmark": "^5.1.0"
   },
   "devDependencies": {

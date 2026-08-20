@@ -3,6 +3,7 @@ import { PDFDocument, StandardFonts } from "@cantoo/pdf-lib";
 import fs from "fs";
 import Database from "better-sqlite3";
 import { fillForm, verifySecret } from "./helpers.ts";
+import parsePhoneNumber from "libphonenumber-js";
 
 // Types
 
@@ -349,6 +350,10 @@ const API_KEY = process.env.API_KEY || "";
 const PORT = process.env.PORT || "";
 const DOCUMENSO_API_URL = process.env.DOCUMENSO_API_URL || "";
 const DOCUMENSO_API_KEY = process.env.DOCUMENSO_API_KEY || "";
+const LOCK_URL = process.env.LOCK_URL || "";
+const LOCK_API_KEY = process.env.LOCK_API_KEY || "";
+const LOCK_GROUP_ID = process.env.LOCK_GROUP_ID || "";
+const LOCK_ID = process.env.LOCK_ID || "";
 
 // Express configuration
 
@@ -367,20 +372,23 @@ db.prepare(
     benevole_email TEXT NOT NULL,
     benevole_url TEXT NOT NULL,
     benevole_surname TEXT NOT NULL,
+    benevole_name TEXT NOT NULL,
+    benevole_phone TEXT NOT NULL,
     tuteur_email TEXT,
     tuteur_url TEXT,
     tuteur_name TEXT,
-    documenso_id TEXT,
+    documenso_id TEXT NOT NULL,
+    envelope_item_id TEXT NOT NULL,
     document_signed INTEGER DEFAULT 0,
-    activity TEXT
+    activity TEXT NOT NULL
   )
 `,
 ).run();
 
 // ----- New dossier to fill and to send to Documenso -----------------------
 
-app.post("/register", async (req: express.Request, res: express.Response) => {
-  console.log("POST /register");
+app.post("/dossiers", async (req: express.Request, res: express.Response) => {
+  console.log("POST /dossiers");
 
   // Check Authorization and return a 401 if wrong
 
@@ -776,92 +784,116 @@ app.post("/register", async (req: express.Request, res: express.Response) => {
     body: formData,
   });
 
-  const { id } = (await response.json()) as { id: string };
-
   if (response.status >= 200 && response.status < 400) {
-    // Set the document to be signed
+    const { id } = (await response.json()) as { id: string };
 
-    const secondResponse = await fetch(
-      DOCUMENSO_API_URL + "envelope/distribute",
-      {
-        method: "POST",
-        headers: {
-          Authorization: DOCUMENSO_API_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          envelopeId: id,
-        }),
+    // Get the envelope item ID from Documenso
+
+    const responseEnvelope = await fetch(DOCUMENSO_API_URL + "envelope/" + id, {
+      method: "GET",
+      headers: {
+        Authorization: DOCUMENSO_API_KEY,
       },
-    );
+    });
 
-    if (secondResponse.status >= 200 && secondResponse.status < 400) {
-      // Get the signing URLs for each recipient
+    const jsonReponse = (await responseEnvelope.json()) as {
+      envelopeItems: Array<{ id: string }>;
+    };
+    const envelopeItemId = jsonReponse?.envelopeItems?.[0]?.id;
 
-      const { recipients } = (await secondResponse.json()) as {
-        recipients: Array<{ email: string; signingUrl: string }>;
-      };
+    if (responseEnvelope.status >= 200 && responseEnvelope.status < 400) {
+      // Set the document to be signed
 
-      const insert = db.prepare(
-        "INSERT INTO dossiers (code, benevole_email, benevole_url, benevole_surname, tuteur_email, tuteur_url, tuteur_name, document_signed, documenso_id, activity) VALUES (@code, @benevole_email, @benevole_url, @benevole_surname, @tuteur_email, @tuteur_url, @tuteur_name, 0, @documenso_id, @activity)",
+      const secondResponse = await fetch(
+        DOCUMENSO_API_URL + "envelope/distribute",
+        {
+          method: "POST",
+          headers: {
+            Authorization: DOCUMENSO_API_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            envelopeId: id,
+          }),
+        },
       );
 
-      if (
-        req.body["answers"]["Email personnel"] ===
-        req.body["answers"]["Adresse mail"]
-      ) {
-        insert.run({
-          code: req.body["code"],
-          benevole_email: req.body["answers"]["Email personnel"],
-          benevole_url: recipients[0]?.signingUrl
-            ? recipients[0].signingUrl
-            : "",
-          benevole_surname: req.body["answers"]["Ton prénom"],
-          tuteur_email: req.body["answers"]["Adresse mail"]
-            ? req.body["answers"]["Adresse mail"]
-            : null,
-          tuteur_url: recipients[1]?.signingUrl
-            ? recipients[1].signingUrl
-            : null,
-          tuteur_name:
-            req.body["answers"][
-              "Nom de famille du titulaire de l'autorité parentale"
-            ] || null,
-          documenso_id: id,
-          activity:
-            req.body["answers"][
-              "Ta future activité principale à l'Unité locale"
-            ],
-        });
-      } else {
-        insert.run({
-          code: req.body["code"],
-          benevole_email: req.body["answers"]["Email personnel"],
-          benevole_url:
-            recipients.find(
-              (r) => r.email === req.body["answers"]["Email personnel"],
-            )?.signingUrl || "",
-          benevole_surname: req.body["answers"]["Ton prénom"],
-          tuteur_email: req.body["answers"]["Adresse mail"]
-            ? req.body["answers"]["Adresse mail"]
-            : null,
-          tuteur_url:
-            recipients.find(
-              (r) => r.email === req.body["answers"]["Adresse mail"],
-            )?.signingUrl || null,
-          tuteur_name:
-            req.body["answers"][
-              "Nom de famille du titulaire de l'autorité parentale"
-            ] || null,
-          documenso_id: id,
-          activity:
-            req.body["answers"][
-              "Ta future activité principale à l'Unité locale"
-            ],
-        });
-      }
+      if (secondResponse.status >= 200 && secondResponse.status < 400) {
+        // Get the signing URLs for each recipient
 
-      res.status(200).send("OK");
+        const { recipients } = (await secondResponse.json()) as {
+          recipients: Array<{ email: string; signingUrl: string }>;
+        };
+
+        const insert = db.prepare(
+          "INSERT INTO dossiers (code, benevole_email, benevole_url, benevole_surname, benevole_name, benevole_phone, tuteur_email, tuteur_url, tuteur_name, document_signed, documenso_id, envelope_item_id, activity) VALUES (@code, @benevole_email, @benevole_url, @benevole_surname, @benevole_name, @benevole_phone, @tuteur_email, @tuteur_url, @tuteur_name, 0, @documenso_id, @envelope_item_id, @activity)",
+        );
+
+        if (
+          req.body["answers"]["Email personnel"] ===
+          req.body["answers"]["Adresse mail"]
+        ) {
+          insert.run({
+            code: req.body["code"],
+            benevole_email: req.body["answers"]["Email personnel"],
+            benevole_url: recipients[0]?.signingUrl
+              ? recipients[0].signingUrl
+              : "",
+            benevole_surname: req.body["answers"]["Ton prénom"],
+            benevole_name: req.body["answers"]["Ton nom de famille"],
+            benevole_phone: req.body["answers"]["Téléphone personnel"],
+            tuteur_email: req.body["answers"]["Adresse mail"]
+              ? req.body["answers"]["Adresse mail"]
+              : null,
+            tuteur_url: recipients[1]?.signingUrl
+              ? recipients[1].signingUrl
+              : null,
+            tuteur_name:
+              req.body["answers"][
+                "Nom de famille du titulaire de l'autorité parentale"
+              ] || null,
+            documenso_id: id,
+            envelope_item_id: envelopeItemId,
+            activity:
+              req.body["answers"][
+                "Ta future activité principale à l'Unité locale"
+              ],
+          });
+        } else {
+          insert.run({
+            code: req.body["code"],
+            benevole_email: req.body["answers"]["Email personnel"],
+            benevole_url:
+              recipients.find(
+                (r) => r.email === req.body["answers"]["Email personnel"],
+              )?.signingUrl || "",
+            benevole_surname: req.body["answers"]["Ton prénom"],
+            benevole_name: req.body["answers"]["Ton nom de famille"],
+            benevole_phone: req.body["answers"]["Téléphone personnel"],
+            tuteur_email: req.body["answers"]["Adresse mail"]
+              ? req.body["answers"]["Adresse mail"]
+              : null,
+            tuteur_url:
+              recipients.find(
+                (r) => r.email === req.body["answers"]["Adresse mail"],
+              )?.signingUrl || null,
+            tuteur_name:
+              req.body["answers"][
+                "Nom de famille du titulaire de l'autorité parentale"
+              ] || null,
+            documenso_id: id,
+            envelope_item_id: envelopeItemId,
+            activity:
+              req.body["answers"][
+                "Ta future activité principale à l'Unité locale"
+              ],
+          });
+        }
+
+        res.status(200).send("OK");
+      } else {
+        res.status(400).send("KO");
+      }
     } else {
       res.status(400).send("KO");
     }
@@ -889,7 +921,7 @@ app.get("/dossiers/:code", (req: express.Request, res: express.Response) => {
   }
 
   const select = db.prepare(
-    "SELECT benevole_email, benevole_url, benevole_surname, benevole_signed, tuteur_email, tuteur_url, tuteur_name, tuteur_signed FROM dossiers WHERE code = ? ORDER BY id DESC LIMIT 1",
+    "SELECT * FROM dossiers WHERE code = ? ORDER BY id DESC LIMIT 1",
   );
   const dossier = select.get(req.params.code);
 
@@ -901,10 +933,147 @@ app.get("/dossiers/:code", (req: express.Request, res: express.Response) => {
   res.status(200).json(dossier);
 });
 
+// ----- Delete PDFs and data of a dossier ----------------------------------
+// This is used when a PDF is signed and the data is imported.
+// We also want to add the benevole phone number to lock.crf.tools.
+
+app.delete(
+  "/dossiers/:code",
+  async (req: express.Request, res: express.Response) => {
+    console.log("DELETE /dossiers/" + req.params.code);
+
+    // Check Authorization and return a 401 if wrong
+
+    if (!verifySecret(req.headers["authorization"] as string, API_KEY)) {
+      console.log("Unauthorized");
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    if (!req.params.code) {
+      console.log("Missing code");
+      res.status(400).json({ message: "Missing code" });
+      return;
+    }
+
+    // Get data
+
+    const select = db.prepare(
+      "SELECT * FROM dossiers WHERE code = ? ORDER BY id DESC LIMIT 1",
+    );
+    const dossier = select.get(req.params.code);
+
+    if (!dossier) {
+      console.log("Dossier not found");
+      res.status(404).json({ message: "Dossier not found" });
+      return;
+    }
+
+    // Trying to parse phone number
+    const phoneNumber = parsePhoneNumber(dossier.benevole_phone, "FR");
+    let lockSuccess = false;
+
+    if (phoneNumber) {
+      // Add user to lock.crf.tools
+
+      const formDataLockResponse = new FormData();
+      formDataLockResponse.append(
+        "name",
+        dossier.benevole_surname + " " + dossier.benevole_name,
+      );
+      formDataLockResponse.append("groupId", LOCK_GROUP_ID);
+      formDataLockResponse.append("phoneNumber", phoneNumber.number);
+
+      const lockResponse = await fetch(LOCK_URL + "api/users", {
+        method: "POST",
+        headers: {
+          "x-auth-bypass": LOCK_API_KEY,
+        },
+        body: formDataLockResponse,
+      });
+
+      if (lockResponse.status === 201) {
+        // Give user access to the lock
+
+        const lockResponseJson = (await lockResponse.json()) as {
+          user: { id: string };
+        };
+
+        const formDataLockAccess = new FormData();
+        formDataLockAccess.append("userId", lockResponseJson.user.id);
+        formDataLockAccess.append("lockId", LOCK_ID);
+
+        const lockAccessResponse = await fetch(
+          LOCK_URL + "api/authorizations",
+          {
+            method: "POST",
+            headers: {
+              "x-auth-bypass": LOCK_API_KEY,
+            },
+            body: formDataLockAccess,
+          },
+        );
+
+        if (lockAccessResponse.status === 201) {
+          console.log("User added to lock.crf.tools and access granted");
+          lockSuccess = true;
+        } else {
+          console.log("Failed to grant access to lock.crf.tools");
+        }
+      } else {
+        console.log("Failed to add user to lock.crf.tools");
+      }
+    } else {
+      console.log("Failed to parse phone number");
+    }
+
+    // TODO : Create the benevole in Gaia
+
+    // Remove from Documenso
+
+    const response = await fetch(DOCUMENSO_API_URL + "envelope/delete", {
+      method: "POST",
+      headers: {
+        Authorization: DOCUMENSO_API_KEY,
+      },
+      body: JSON.stringify({
+        envelopeId: dossier.documenso_id,
+      }),
+    });
+
+    if (response.status < 200 || response.status >= 400) {
+      console.log("Failed to delete from Documenso");
+      res.status(400).json({ message: "Failed to delete from Documenso" });
+      return;
+    }
+
+    // Remove from DB
+
+    const del = db.prepare("DELETE FROM dossiers WHERE code = ?");
+    del.run(req.params.code);
+
+    if (lockSuccess) {
+      res.status(200).send({
+        message: "Dossier deleted",
+        errorCode: 0,
+        benevole: dossier,
+        nivol: "???", // TODO : Get the NIVOL from Gaia
+      });
+    } else {
+      res.status(200).send({
+        message: "Dossier deleted, but failed to add user to lock.crf.tools",
+        errorCode: 1,
+        benevole: dossier,
+        nivol: "???", // TODO : Get the NIVOL from Gaia
+      });
+    }
+  },
+);
+
 // ----- Mark a PDF as signed -----------------------------------------------
 
-app.post("/signed", (req: express.Request, res: express.Response) => {
-  console.log("POST /signed");
+app.post("/webhook", (req: express.Request, res: express.Response) => {
+  console.log("POST /webhook");
 
   // Check Authorization and return a 401 if wrong
 
@@ -914,68 +1083,34 @@ app.post("/signed", (req: express.Request, res: express.Response) => {
     return;
   }
 
-  if (!req.body["payload"] || !req.body["payload"]["documentDataId"]) {
-    console.log("Missing documentDataId");
-    res.status(400).json({ message: "Missing documentDataId" });
-    return;
+  if (req.body["event"] === "DOCUMENT_COMPLETED") {
+    if (!req.body["payload"] || !req.body["payload"]["envelopeId"]) {
+      console.log("Missing envelopeId");
+      res.status(400).json({ message: "Missing envelopeId" });
+      return;
+    }
+
+    const select = db.prepare(
+      "SELECT COUNT(*) AS count FROM dossiers WHERE documenso_id = ? ORDER BY id DESC LIMIT 1",
+    );
+
+    const nb = select.get(req.body["payload"]["envelopeId"]);
+
+    if (nb.count === 0) {
+      console.log("Dossier not found");
+      res.status(404).json({ message: "Dossier not found" });
+      return;
+    }
+
+    const update = db.prepare(
+      "UPDATE dossiers SET document_signed = 1 WHERE documenso_id = ? ORDER BY id DESC LIMIT 1",
+    );
+    update.run(req.body["payload"]["envelopeId"]);
+
+    res.status(200).send("OK");
+  } else {
+    res.status(400).send("KO");
   }
-
-  const select = db.prepare(
-    "SELECT COUNT(*) AS count FROM dossiers WHERE documenso_id = ? ORDER BY id DESC LIMIT 1",
-  );
-
-  const nb = select.get(req.body["payload"]["documentDataId"]);
-
-  if (nb.count === 0) {
-    console.log("Dossier not found");
-    res.status(404).json({ message: "Dossier not found" });
-    return;
-  }
-
-  const update = db.prepare(
-    "UPDATE dossiers SET document_signed = 1 WHERE documenso_id = ? ORDER BY id DESC LIMIT 1",
-  );
-  update.run(req.body["payload"]["documentDataId"]);
-
-  res.status(200).send("OK");
-});
-
-// ----- Check if PDF is signed ---------------------------------------------
-
-app.get("/check", (req: express.Request, res: express.Response) => {
-  console.log("GET /check/" + req.query.id);
-
-  // Check Authorization and return a 401 if wrong
-
-  if (!verifySecret(req.headers["authorization"] as string, API_KEY)) {
-    console.log("Unauthorized");
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
-  if (!req.query.id) {
-    console.log("Missing id");
-    res.status(400).json({ message: "Missing id" });
-    return;
-  }
-
-  const select = db.prepare(
-    "SELECT document_signed, activity FROM dossiers WHERE documenso_id = ? ORDER BY id DESC LIMIT 1",
-  );
-
-  const dossier = select.get(req.query.id);
-
-  if (!dossier) {
-    console.log("Dossier not found");
-    res.status(404).json({ message: "Dossier not found" });
-    return;
-  }
-
-  res.status(200).json({
-    id: req.query.id,
-    signed: dossier.document_signed === 1,
-    activity: dossier.activity,
-  });
 });
 
 // ----- Healthcheck --------------------------------------------------------
