@@ -11,7 +11,7 @@
     "prettier:check": "prettier --check \"**/*.{ts,tsx,js,md,mdx,css,yaml}\""
   },
   "dependencies": {
-    "@cantoo/pdf-lib": "^2.8.4",
+    "@cantoo/pdf-lib": "^2.9.1",
     "better-sqlite3": "^13.0.3",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
