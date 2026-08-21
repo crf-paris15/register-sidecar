@@ -1035,6 +1035,8 @@ app.delete(
 
     // Remove from Documenso
 
+    console.log(dossier);
+
     const response = await fetch(DOCUMENSO_API_URL + "envelope/delete", {
       method: "POST",
       headers: {
@@ -1044,6 +1046,8 @@ app.delete(
         envelopeId: dossier.documenso_id,
       }),
     });
+
+    console.log(await response.text());
 
     if (response.status < 200 || response.status >= 400) {
       console.log("Failed to delete from Documenso");
