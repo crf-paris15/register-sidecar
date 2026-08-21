@@ -1121,7 +1121,7 @@ app.post("/webhook", (req: express.Request, res: express.Response) => {
 // ----- Thanks page --------------------------------------------------------
 
 app.get("/thanks", (_: express.Request, res: express.Response) => {
-  res.status(200).sendFile(path.resolve(process.cwd(), "media", "thanks.html"));
+  res.status(200).sendFile(MEDIA_PATH + "thanks.html");
 });
 
 // ----- Healthcheck --------------------------------------------------------
