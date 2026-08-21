@@ -355,6 +355,7 @@ const LOCK_API_KEY = process.env.LOCK_API_KEY || "";
 const LOCK_GROUP_ID = process.env.LOCK_GROUP_ID || "";
 const LOCK_ID = process.env.LOCK_ID || "";
 const DB_PATH = process.env.DB_PATH || "";
+const MEDIA_PATH = process.env.MEDIA_PATH || "";
 
 // Express configuration
 
@@ -364,7 +365,7 @@ app.use(express.json());
 
 // DB configuration
 
-const db = new Database(DB_PATH + "db/db.sqlite");
+const db = new Database(DB_PATH + "db.sqlite");
 db.prepare(
   `
   CREATE TABLE IF NOT EXISTS dossiers (
@@ -402,11 +403,13 @@ app.post("/dossiers", async (req: express.Request, res: express.Response) => {
   // Open PDF templates
 
   const dossierBenevoleFs = fs.readFileSync(
-    "media/DossierBenevole_Annexes.pdf",
+    MEDIA_PATH + "DossierBenevole_Annexes.pdf",
   );
-  const charteBenevolatFs = fs.readFileSync("media/CharteDuBenevolat.pdf");
+  const charteBenevolatFs = fs.readFileSync(
+    MEDIA_PATH + "CharteDuBenevolat.pdf",
+  );
   const autorisationParentaleFs = fs.readFileSync(
-    "media/AutorisationParentale.pdf",
+    MEDIA_PATH + "AutorisationParentale.pdf",
   );
 
   // Load PDF templates
