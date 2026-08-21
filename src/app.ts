@@ -1,6 +1,7 @@
 import express from "express";
 import { PDFDocument, StandardFonts } from "@cantoo/pdf-lib";
 import fs from "fs";
+import path from "path";
 import Database from "better-sqlite3";
 import { fillForm, verifySecret } from "./helpers.ts";
 import parsePhoneNumber from "libphonenumber-js";
@@ -761,7 +762,7 @@ app.post("/dossiers", async (req: express.Request, res: express.Response) => {
       subject:
         "Croix-Rouge française de Paris 15 - Signer votre dossier bénévole",
       message: "Bonjour, merci de relire et de signer le document.",
-      redirectUrl: "https://dossier.crf.tools/signed?code=" + req.body["code"],
+      redirectUrl: "https://dossier.crf.tools/thanks",
       distributionMethod: "NONE",
     },
   };
@@ -1115,6 +1116,12 @@ app.post("/webhook", (req: express.Request, res: express.Response) => {
   } else {
     res.status(400).send("KO");
   }
+});
+
+// ----- Thanks page --------------------------------------------------------
+
+app.get("/thanks", (_: express.Request, res: express.Response) => {
+  res.status(200).sendFile(path.resolve(process.cwd(), "media", "thanks.html"));
 });
 
 // ----- Healthcheck --------------------------------------------------------

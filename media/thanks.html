@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Merci pour votre signature</title>
+    <style>
+      :root {
+        --bg: #fce6e8;
+        --card: #ffffff;
+        --primary: #e30813;
+        --primary-dark: #b00610;
+        --text: #1d2433;
+        --muted: #5b6475;
+        --border: #f2d4d7;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, #f9dfe1, var(--bg));
+        font-family: Arial, Helvetica, sans-serif;
+        color: var(--text);
+      }
+
+      .card {
+        width: min(760px, calc(100% - 32px));
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        box-shadow: 0 14px 40px rgba(227, 8, 19, 0.12);
+        padding: 48px 40px;
+        text-align: center;
+      }
+
+      .badge {
+        display: inline-block;
+        background: rgba(227, 8, 19, 0.08);
+        color: var(--primary);
+        border-radius: 999px;
+        padding: 8px 14px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 20px 0 12px;
+        font-size: clamp(2rem, 4vw, 3rem);
+        color: var(--primary-dark);
+      }
+
+      .subtitle {
+        margin: 0 auto 28px;
+        max-width: 560px;
+        color: var(--muted);
+        font-size: 1.08rem;
+        line-height: 1.6;
+      }
+
+      .message {
+        margin: 0 auto;
+        padding: 22px 24px;
+        background: #fffafa;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        text-align: left;
+        line-height: 1.8;
+        color: var(--text);
+        max-width: 620px;
+        font-size: 0.8em;
+      }
+
+      .message p {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="badge">Merci</div>
+      <h1>Merci pour votre signature !</h1>
+      <p class="subtitle">
+        Nous vous remercions pour l'engagement que vous avez manifesté en
+        signant votre dossier bénévole ou celui de votre enfant.
+      </p>
+
+      <div class="message">
+        <p>
+          Si vous êtes majeur ou mineur de plus de 16 ans, vous allez recevoir
+          un mail avec la suite du parcours dans quelques minutes.
+        </p>
+
+        <hr
+          style="
+            color: var(--border);
+            background-color: var(--border);
+            height: 1px;
+            border: 0px;
+            margin-top: 15px;
+            margin-bottom: 15px;
+          "
+        />
+        <p>
+          Si vous avez signé le dossier de votre enfant, assurez-vous qu'il a
+          lui aussi bien signé via le mail qu'il a reçu. Inversement, si vous
+          êtes un mineur de moins de 16 ans, assurez-vous que vous responsable
+          légal a bien signé le dossier lui aussi. La suite du parcours ne sera
+          possible que lorsque toutes les signatures auront été collectées.
+        </p>
+      </div>
+    </main>
+  </body>
+</html>
