@@ -1,7 +1,6 @@
 import express from "express";
 import { PDFDocument, StandardFonts } from "@cantoo/pdf-lib";
 import fs from "fs";
-import path from "path";
 import Database from "better-sqlite3";
 import { fillForm, verifySecret } from "./helpers.ts";
 import parsePhoneNumber from "libphonenumber-js";
