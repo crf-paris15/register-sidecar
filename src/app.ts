@@ -3,6 +3,7 @@ import { PDFDocument, StandardFonts } from "@cantoo/pdf-lib";
 import fs from "fs";
 import Database from "better-sqlite3";
 import { fillForm, verifySecret } from "./helpers.ts";
+import { registerUser } from "./gaia.ts";
 import parsePhoneNumber from "libphonenumber-js";
 
 // Types
@@ -372,18 +373,48 @@ db.prepare(
   CREATE TABLE IF NOT EXISTS dossiers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     code TEXT NOT NULL,
-    benevole_email TEXT NOT NULL,
-    benevole_url TEXT NOT NULL,
-    benevole_surname TEXT NOT NULL,
-    benevole_name TEXT NOT NULL,
-    benevole_phone TEXT NOT NULL,
-    tuteur_email TEXT,
-    tuteur_url TEXT,
-    tuteur_name TEXT,
     documenso_id TEXT NOT NULL,
     envelope_item_id TEXT NOT NULL,
     document_signed INTEGER DEFAULT 0,
-    activity TEXT NOT NULL
+    hasAlreadyBeenBenevole INTEGER DEFAULT 0,
+    benevole_url TEXT NOT NULL,
+    tuteur_url TEXT,
+
+    benevole_civilite TEXT NOT NULL,
+    benevole_name TEXT NOT NULL,
+    benevole_name_usage TEXT,
+    benevole_surname TEXT NOT NULL,
+    benevole_birth_date TEXT NOT NULL,
+    benevole_birth_city TEXT,
+    benevole_birth_departement TEXT,
+    benevole_birth_country TEXT,
+  
+    benevole_address1 TEXT NOT NULL,
+    benevole_address2 TEXT,
+    benevole_postal_code TEXT NOT NULL,
+    benevole_city TEXT NOT NULL,
+    benevole_country TEXT NOT NULL,
+
+    benevole_email TEXT NOT NULL,
+    benevole_phone TEXT NOT NULL,
+
+    sos_civilite TEXT NOT NULL,
+    sos_name TEXT NOT NULL,
+    sos_surname TEXT NOT NULL,
+    sos_telephone TEXT NOT NULL,
+    sos_address1 TEXT,
+    sos_address2 TEXT,
+    sos_postal_code TEXT NOT NULL,
+    sos_city TEXT NOT NULL,
+    sos_country TEXT NOT NULL,
+    sos_email TEXT,
+    sos_relation INTEGER NOT NULL,
+
+    tuteur_email TEXT,
+    tuteur_name TEXT,
+
+    activity TEXT NOT NULL,
+    second_activity TEXT
   )
 `,
 ).run();
@@ -831,69 +862,136 @@ app.post("/dossiers", async (req: express.Request, res: express.Response) => {
         };
 
         const insert = db.prepare(
-          "INSERT INTO dossiers (code, benevole_email, benevole_url, benevole_surname, benevole_name, benevole_phone, tuteur_email, tuteur_url, tuteur_name, document_signed, documenso_id, envelope_item_id, activity) VALUES (@code, @benevole_email, @benevole_url, @benevole_surname, @benevole_name, @benevole_phone, @tuteur_email, @tuteur_url, @tuteur_name, 0, @documenso_id, @envelope_item_id, @activity)",
+          "INSERT INTO dossiers (code, documenso_id, envelope_item_id, document_signed, hasAlreadyBeenBenevole, benevole_url, tuteur_url, benevole_civilite, benevole_name, benevole_name_usage, benevole_surname, benevole_birth_date, benevole_birth_city, benevole_birth_departement, benevole_birth_country, benevole_address1, benevole_address2, benevole_postal_code, benevole_city, benevole_country, benevole_email, benevole_phone, sos_civilite, sos_name, sos_surname, sos_telephone, sos_address1, sos_address2, sos_postal_code, sos_city, sos_country, sos_email, sos_relation, tuteur_email, tuteur_name, activity, second_activity) VALUES (@code, @documenso_id, @envelope_item_id, @document_signed, @hasAlreadyBeenBenevole, @benevole_url, @tuteur_url, @benevole_civilite, @benevole_name, @benevole_name_usage, @benevole_surname, @benevole_birth_date, @benevole_birth_city, @benevole_birth_departement, @benevole_birth_country, @benevole_address1, @benevole_address2, @benevole_postal_code, @benevole_city, @benevole_country, @benevole_email, @benevole_phone, @sos_civilite, @sos_name, @sos_surname, @sos_telephone, @sos_address1, @sos_address2, @sos_postal_code, @sos_city, @sos_country, @sos_email, @sos_relation, @tuteur_email, @tuteur_name, @activity, @second_activity)",
         );
 
-        if (
-          req.body["answers"]["Email personnel"] ===
-          req.body["answers"]["Adresse mail"]
-        ) {
-          insert.run({
-            code: req.body["code"],
-            benevole_email: req.body["answers"]["Email personnel"],
-            benevole_url: recipients[0]?.signingUrl
-              ? recipients[0].signingUrl
-              : "",
-            benevole_surname: req.body["answers"]["Ton prénom"],
-            benevole_name: req.body["answers"]["Ton nom de famille"],
-            benevole_phone: req.body["answers"]["Téléphone personnel"],
-            tuteur_email: req.body["answers"]["Adresse mail"]
-              ? req.body["answers"]["Adresse mail"]
-              : null,
-            tuteur_url: recipients[1]?.signingUrl
-              ? recipients[1].signingUrl
-              : null,
-            tuteur_name:
-              req.body["answers"][
-                "Nom de famille du titulaire de l'autorité parentale"
-              ] || null,
-            documenso_id: id,
-            envelope_item_id: envelopeItemId,
-            activity:
-              req.body["answers"][
-                "Ta future activité principale à l'Unité locale"
-              ],
-          });
-        } else {
-          insert.run({
-            code: req.body["code"],
-            benevole_email: req.body["answers"]["Email personnel"],
-            benevole_url:
-              recipients.find(
-                (r) => r.email === req.body["answers"]["Email personnel"],
-              )?.signingUrl || "",
-            benevole_surname: req.body["answers"]["Ton prénom"],
-            benevole_name: req.body["answers"]["Ton nom de famille"],
-            benevole_phone: req.body["answers"]["Téléphone personnel"],
-            tuteur_email: req.body["answers"]["Adresse mail"]
-              ? req.body["answers"]["Adresse mail"]
-              : null,
-            tuteur_url:
-              recipients.find(
-                (r) => r.email === req.body["answers"]["Adresse mail"],
-              )?.signingUrl || null,
-            tuteur_name:
-              req.body["answers"][
-                "Nom de famille du titulaire de l'autorité parentale"
-              ] || null,
-            documenso_id: id,
-            envelope_item_id: envelopeItemId,
-            activity:
-              req.body["answers"][
-                "Ta future activité principale à l'Unité locale"
-              ],
-          });
-        }
+        insert.run({
+          // Documenso
+          code: req.body["code"],
+          documenso_id: id,
+          envelope_item_id: envelopeItemId,
+          document_signed: 0,
+          hasAlreadyBeenBenevole:
+            req.body["answers"][
+              "As-tu déjà été bénévole à la Croix-Rouge française ?"
+            ] === "Oui"
+              ? 1
+              : 0,
+
+          // URLs for signing
+          benevole_url:
+            req.body["answers"]["Email personnel"] ===
+            req.body["answers"]["Adresse mail"]
+              ? recipients[0]?.signingUrl
+                ? recipients[0].signingUrl
+                : ""
+              : recipients.find(
+                  (r) => r.email === req.body["answers"]["Email personnel"],
+                )?.signingUrl || "",
+          tuteur_url:
+            req.body["answers"]["Email personnel"] ===
+            req.body["answers"]["Adresse mail"]
+              ? recipients[1]?.signingUrl
+                ? recipients[1].signingUrl
+                : null
+              : recipients.find(
+                  (r) => r.email === req.body["answers"]["Adresse mail"],
+                )?.signingUrl || null,
+
+          // Benevole data
+          benevole_civilite:
+            req.body["answers"]["Civilité"] === "Monsieur" ? "MON" : "MAD",
+          benevole_name: req.body["answers"]["Ton nom de famille"],
+          benevole_name_usage:
+            req.body["answers"]["Ton nom d'usage"] === ""
+              ? null
+              : req.body["answers"]["Ton nom d'usage"],
+          benevole_surname: req.body["answers"]["Ton prénom"],
+          benevole_birth_date:
+            req.body["answers"]["Ta date de naissance"] + "T00:00:00.000Z",
+          benevole_birth_city:
+            req.body["answers"]["Ton lieu de naissance"] === ""
+              ? null
+              : req.body["answers"]["Ton lieu de naissance"],
+          benevole_birth_departement:
+            req.body["answers"][
+              "Ton département de naissance (pour la France)"
+            ] === ""
+              ? null
+              : req.body["answers"][
+                  "Ton département de naissance (pour la France)"
+                ],
+          benevole_birth_country:
+            req.body["answers"]["Ton pays de naissance"] === ""
+              ? null
+              : req.body["answers"]["Ton pays de naissance"],
+          benevole_address1: req.body["answers"]["Numéro et voie"],
+          benevole_address2:
+            req.body["answers"]["Complément d'adresse"] === ""
+              ? null
+              : req.body["answers"]["Complément d'adresse"],
+          benevole_postal_code: req.body["answers"]["Code postal"],
+          benevole_city: req.body["answers"]["Ville"],
+          benevole_country: req.body["answers"]["Pays"],
+          benevole_email: req.body["answers"]["Email personnel"],
+          benevole_phone: req.body["answers"]["Téléphone personnel"],
+
+          // Emergency contact data
+          sos_civilite:
+            req.body["answers"]["Civilité de ton contact d'urgence"] ===
+            "Monsieur"
+              ? "MON"
+              : "MAD",
+          sos_name: req.body["answers"]["Nom de famille"],
+          sos_surname: req.body["answers"]["Prénom"],
+          sos_telephone: req.body["answers"]["Numéro de téléphone"],
+          sos_address1:
+            req.body["answers"]["Adresse : Numéro et voie"] === ""
+              ? null
+              : req.body["answers"]["Adresse : Numéro et voie"],
+          sos_address2:
+            req.body["answers"]["Adresse : Complément d'adresse"] === ""
+              ? null
+              : req.body["answers"]["Adresse : Complément d'adresse"],
+          sos_postal_code: req.body["answers"]["Adresse : Code postal"],
+          sos_city: req.body["answers"]["Adresse : Ville"],
+          sos_country: req.body["answers"]["Adresse : Pays"],
+          sos_email:
+            req.body["answers"]["Email"] === ""
+              ? null
+              : req.body["answers"]["Email"],
+          sos_relation:
+            req.body["answers"]["Lien avec toi"] === "Parent"
+              ? 6
+              : req.body["answers"]["Lien avec toi"] === "Conjoint(e)"
+                ? 2
+                : req.body["answers"]["Lien avec toi"] === "Famille proche"
+                  ? 1
+                  : 3,
+
+          // Legal guardian data
+          tuteur_email: req.body["answers"]["Adresse mail"]
+            ? req.body["answers"]["Adresse mail"]
+            : null,
+          tuteur_name:
+            req.body["answers"][
+              "Nom de famille du titulaire de l'autorité parentale"
+            ] || null,
+
+          // Activities
+          activity:
+            req.body["answers"][
+              "Ta future activité principale à l'Unité locale"
+            ],
+          second_activity:
+            req.body["answers"][
+              "Si tu souhaites faire une seconde activité, ça serait"
+            ] === ""
+              ? null
+              : req.body["answers"][
+                  "Si tu souhaites faire une seconde activité, ça serait"
+                ],
+        });
 
         res.status(200).send("OK");
       } else {
@@ -1033,8 +1131,6 @@ app.delete(
         console.log("Failed to parse phone number");
       }
 
-      // TODO : Create the benevole in Gaia
-
       // Remove from Documenso
 
       const response = await fetch(DOCUMENSO_API_URL + "envelope/delete", {
@@ -1054,24 +1150,47 @@ app.delete(
         return;
       }
 
+      // Create the benevole in Gaia
+
+      let gaiaResponse = { success: false, nivol: "???" };
+
+      if (dossier.hasAlreadyBeenBenevole === 0) {
+        gaiaResponse = await registerUser(dossier);
+      }
+
       // Remove from DB
 
       const del = db.prepare("DELETE FROM dossiers WHERE code = ?");
       del.run(req.params.code);
 
-      if (lockSuccess) {
+      if (lockSuccess && gaiaResponse.success) {
         res.status(200).send({
           message: "Dossier deleted",
           errorCode: 0,
           benevole: dossier,
-          nivol: "???", // TODO : Get the NIVOL from Gaia
+          nivol: gaiaResponse.nivol,
         });
-      } else {
+      } else if (!lockSuccess && gaiaResponse.success) {
         res.status(200).send({
           message: "Dossier deleted, but failed to add user to lock.crf.tools",
           errorCode: 1,
           benevole: dossier,
-          nivol: "???", // TODO : Get the NIVOL from Gaia
+          nivol: gaiaResponse.nivol,
+        });
+      } else if (lockSuccess && !gaiaResponse.success) {
+        res.status(200).send({
+          message: "Dossier deleted, but failed to user to Gaia",
+          errorCode: 2,
+          benevole: dossier,
+          nivol: "???",
+        });
+      } else {
+        res.status(200).send({
+          message:
+            "Dossier deleted, but failed to add user to lock.crf.tools and Gaia",
+          errorCode: 3,
+          benevole: dossier,
+          nivol: "???",
         });
       }
     } else {
@@ -1153,6 +1272,8 @@ app.get("/thanks", (_: express.Request, res: express.Response) => {
 // ----- Version ------------------------------------------------------------
 
 app.get("/version", (_: express.Request, res: express.Response) => {
+  registerUser(null);
+
   res.status(200).send(VERSION);
 });
 

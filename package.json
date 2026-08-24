@@ -11,11 +11,15 @@
     "prettier:check": "prettier --check \"**/*.{ts,tsx,js,md,mdx,css,yaml}\""
   },
   "dependencies": {
+    "@1password/sdk": "^0.5.0",
     "@cantoo/pdf-lib": "^2.8.4",
     "better-sqlite3": "^13.0.3",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "libphonenumber-js": "^1.13.11"
+    "ini": "^7.0.0",
+    "libphonenumber-js": "^1.13.11",
+    "puppeteer": "^25.8.0",
+    "totp-generator": "^2.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -35,6 +39,6 @@
   "engines": {
     "node": "24"
   },
-  "packageManager": "pnpm@11.22.0",
+  "packageManager": "pnpm@11.23.0",
   "type": "module"
 }
