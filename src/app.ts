@@ -1005,8 +1005,6 @@ app.delete(
             [key: string]: any;
           };
 
-          console.log(lockResponseJson);
-
           const formDataLockAccess = new FormData();
           formDataLockAccess.append("userId", lockResponseJson?.user?.id);
           formDataLockAccess.append("lockId", LOCK_ID);
