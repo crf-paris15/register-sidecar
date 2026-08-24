@@ -973,104 +973,129 @@ app.delete(
       return;
     }
 
-    // Trying to parse phone number
-    const phoneNumber = parsePhoneNumber(dossier.benevole_phone, "FR");
-    let lockSuccess = false;
+    if (dossier.document_signed === 1) {
+      // Trying to parse phone number
+      const phoneNumber = parsePhoneNumber(dossier.benevole_phone, "FR");
+      let lockSuccess = false;
 
-    if (phoneNumber) {
-      // Add user to lock.crf.tools
+      if (phoneNumber) {
+        // Add user to lock.crf.tools
 
-      const formDataLockResponse = new FormData();
-      formDataLockResponse.append(
-        "name",
-        dossier.benevole_surname + " " + dossier.benevole_name,
-      );
-      formDataLockResponse.append("groupId", LOCK_GROUP_ID);
-      formDataLockResponse.append("phoneNumber", phoneNumber.number);
-
-      const lockResponse = await fetch(LOCK_URL + "api/users", {
-        method: "POST",
-        headers: {
-          "x-auth-bypass": LOCK_API_KEY,
-        },
-        body: formDataLockResponse,
-      });
-
-      if (lockResponse.status === 201) {
-        // Give user access to the lock
-
-        const lockResponseJson = (await lockResponse.json()) as {
-          user: { id: string };
-        };
-
-        const formDataLockAccess = new FormData();
-        formDataLockAccess.append("userId", lockResponseJson.user.id);
-        formDataLockAccess.append("lockId", LOCK_ID);
-
-        const lockAccessResponse = await fetch(
-          LOCK_URL + "api/authorizations",
-          {
-            method: "POST",
-            headers: {
-              "x-auth-bypass": LOCK_API_KEY,
-            },
-            body: formDataLockAccess,
-          },
+        const formDataLockResponse = new FormData();
+        formDataLockResponse.append(
+          "name",
+          dossier.benevole_surname + " " + dossier.benevole_name,
         );
+        formDataLockResponse.append("groupId", LOCK_GROUP_ID);
+        formDataLockResponse.append("phoneNumber", phoneNumber.number);
 
-        if (lockAccessResponse.status === 201) {
-          console.log("User added to lock.crf.tools and access granted");
-          lockSuccess = true;
+        const lockResponse = await fetch(LOCK_URL + "api/users", {
+          method: "POST",
+          headers: {
+            "x-auth-bypass": LOCK_API_KEY,
+          },
+          body: formDataLockResponse,
+        });
+
+        if (lockResponse.status === 201) {
+          // Give user access to the lock
+
+          const lockResponseJson = (await lockResponse.json()) as {
+            user: { id: string };
+          };
+
+          const formDataLockAccess = new FormData();
+          formDataLockAccess.append("userId", lockResponseJson.user.id);
+          formDataLockAccess.append("lockId", LOCK_ID);
+
+          const lockAccessResponse = await fetch(
+            LOCK_URL + "api/authorizations",
+            {
+              method: "POST",
+              headers: {
+                "x-auth-bypass": LOCK_API_KEY,
+              },
+              body: formDataLockAccess,
+            },
+          );
+
+          if (lockAccessResponse.status === 201) {
+            console.log("User added to lock.crf.tools and access granted");
+            lockSuccess = true;
+          } else {
+            console.log("Failed to grant access to lock.crf.tools");
+          }
         } else {
-          console.log("Failed to grant access to lock.crf.tools");
+          console.log("Failed to add user to lock.crf.tools");
         }
       } else {
-        console.log("Failed to add user to lock.crf.tools");
+        console.log("Failed to parse phone number");
+      }
+
+      // TODO : Create the benevole in Gaia
+
+      // Remove from Documenso
+
+      const response = await fetch(DOCUMENSO_API_URL + "envelope/delete", {
+        method: "POST",
+        headers: {
+          Authorization: DOCUMENSO_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          envelopeId: dossier.documenso_id,
+        }),
+      });
+
+      if (response.status < 200 || response.status >= 400) {
+        console.log("Failed to delete from Documenso");
+        res.status(400).json({ message: "Failed to delete from Documenso" });
+        return;
+      }
+
+      // Remove from DB
+
+      const del = db.prepare("DELETE FROM dossiers WHERE code = ?");
+      del.run(req.params.code);
+
+      if (lockSuccess) {
+        res.status(200).send({
+          message: "Dossier deleted",
+          errorCode: 0,
+          benevole: dossier,
+          nivol: "???", // TODO : Get the NIVOL from Gaia
+        });
+      } else {
+        res.status(200).send({
+          message: "Dossier deleted, but failed to add user to lock.crf.tools",
+          errorCode: 1,
+          benevole: dossier,
+          nivol: "???", // TODO : Get the NIVOL from Gaia
+        });
       }
     } else {
-      console.log("Failed to parse phone number");
-    }
+      console.log("Dossier not signed, removing because timeout reached");
 
-    // TODO : Create the benevole in Gaia
+      // Remove from Documenso
 
-    // Remove from Documenso
-
-    const response = await fetch(DOCUMENSO_API_URL + "envelope/delete", {
-      method: "POST",
-      headers: {
-        Authorization: DOCUMENSO_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        envelopeId: dossier.documenso_id,
-      }),
-    });
-
-    if (response.status < 200 || response.status >= 400) {
-      console.log("Failed to delete from Documenso");
-      res.status(400).json({ message: "Failed to delete from Documenso" });
-      return;
-    }
-
-    // Remove from DB
-
-    const del = db.prepare("DELETE FROM dossiers WHERE code = ?");
-    del.run(req.params.code);
-
-    if (lockSuccess) {
-      res.status(200).send({
-        message: "Dossier deleted",
-        errorCode: 0,
-        benevole: dossier,
-        nivol: "???", // TODO : Get the NIVOL from Gaia
+      const response = await fetch(DOCUMENSO_API_URL + "envelope/delete", {
+        method: "POST",
+        headers: {
+          Authorization: DOCUMENSO_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          envelopeId: dossier.documenso_id,
+        }),
       });
-    } else {
-      res.status(200).send({
-        message: "Dossier deleted, but failed to add user to lock.crf.tools",
-        errorCode: 1,
-        benevole: dossier,
-        nivol: "???", // TODO : Get the NIVOL from Gaia
-      });
+
+      if (response.status < 200 || response.status >= 400) {
+        console.log("Failed to delete from Documenso");
+        res.status(400).json({ message: "Failed to delete from Documenso" });
+        return;
+      } else {
+        res.status(200).json({ message: "Dossier deleted" });
+      }
     }
   },
 );
