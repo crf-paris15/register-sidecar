@@ -356,6 +356,7 @@ const LOCK_GROUP_ID = process.env.LOCK_GROUP_ID || "";
 const LOCK_ID = process.env.LOCK_ID || "";
 const DB_PATH = process.env.DB_PATH || "";
 const MEDIA_PATH = process.env.MEDIA_PATH || "";
+const VERSION = process.env.GIT_TAG || "dev";
 
 // Express configuration
 
@@ -1001,11 +1002,13 @@ app.delete(
           // Give user access to the lock
 
           const lockResponseJson = (await lockResponse.json()) as {
-            user: { id: string };
+            [key: string]: any;
           };
 
+          console.log(lockResponseJson);
+
           const formDataLockAccess = new FormData();
-          formDataLockAccess.append("userId", lockResponseJson.user.id);
+          formDataLockAccess.append("userId", lockResponseJson?.user?.id);
           formDataLockAccess.append("lockId", LOCK_ID);
 
           const lockAccessResponse = await fetch(
@@ -1147,6 +1150,12 @@ app.post("/webhook", (req: express.Request, res: express.Response) => {
 
 app.get("/thanks", (_: express.Request, res: express.Response) => {
   res.status(200).sendFile(MEDIA_PATH + "thanks.html");
+});
+
+// ----- Version ------------------------------------------------------------
+
+app.get("/version", (_: express.Request, res: express.Response) => {
+  res.status(200).send(VERSION);
 });
 
 // ----- Healthcheck --------------------------------------------------------
