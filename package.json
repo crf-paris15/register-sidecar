@@ -18,7 +18,7 @@
     "express": "^5.2.1",
     "ini": "^7.0.0",
     "libphonenumber-js": "^1.13.11",
-    "puppeteer": "^25.8.0",
+    "puppeteer": "^25.9.0",
     "totp-generator": "^2.0.1"
   },
   "devDependencies": {
