@@ -284,7 +284,7 @@ export const registerUser = async (userData: any) => {
     .join("; ");
 
   // We need to check if the user is already logged in by making a request to Gaia with the cookies.
-  // The request does not follow redirects, so if the response is 302, it means the user is not logged (and is redirected to Okta auth) in and needs to log in.
+  // The request does not follow redirects, so if the response is 302, it means the user is not logged in (and is redirected to Okta auth) and needs to log in.
   const request = await fetch(GAIA_URL, {
     method: "GET",
     headers: {
