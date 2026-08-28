@@ -146,8 +146,8 @@ export const verifySecret = (
  * @returns An object containing the parsed phone number and the telephone code.
  */
 export const getPhoneNumber = (country: string, phone: string) => {
-  let phoneNumber = null;
-  let codeTelephone = null;
+  let phoneNumber = null; // eslint-disable-line -- For some reason, the linter is complaining that the variable is never used, but it clearly is.
+  let codeTelephone = null; // eslint-disable-line -- For some reason, the linter is complaining that the variable is never used, but it clearly is.
 
   switch (country) {
     case "FRANCE":
