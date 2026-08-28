@@ -401,7 +401,7 @@ db.prepare(
     sos_civilite TEXT NOT NULL,
     sos_name TEXT NOT NULL,
     sos_surname TEXT NOT NULL,
-    sos_telephone TEXT NOT NULL,
+    sos_phone TEXT NOT NULL,
     sos_address1 TEXT,
     sos_address2 TEXT,
     sos_postal_code TEXT NOT NULL,
@@ -862,7 +862,7 @@ app.post("/dossiers", async (req: express.Request, res: express.Response) => {
         };
 
         const insert = db.prepare(
-          "INSERT INTO dossiers (code, documenso_id, envelope_item_id, document_signed, hasAlreadyBeenBenevole, benevole_url, tuteur_url, benevole_civilite, benevole_name, benevole_name_usage, benevole_surname, benevole_birth_date, benevole_birth_city, benevole_birth_departement, benevole_birth_country, benevole_address1, benevole_address2, benevole_postal_code, benevole_city, benevole_country, benevole_email, benevole_phone, sos_civilite, sos_name, sos_surname, sos_telephone, sos_address1, sos_address2, sos_postal_code, sos_city, sos_country, sos_email, sos_relation, tuteur_email, tuteur_name, activity, second_activity) VALUES (@code, @documenso_id, @envelope_item_id, @document_signed, @hasAlreadyBeenBenevole, @benevole_url, @tuteur_url, @benevole_civilite, @benevole_name, @benevole_name_usage, @benevole_surname, @benevole_birth_date, @benevole_birth_city, @benevole_birth_departement, @benevole_birth_country, @benevole_address1, @benevole_address2, @benevole_postal_code, @benevole_city, @benevole_country, @benevole_email, @benevole_phone, @sos_civilite, @sos_name, @sos_surname, @sos_telephone, @sos_address1, @sos_address2, @sos_postal_code, @sos_city, @sos_country, @sos_email, @sos_relation, @tuteur_email, @tuteur_name, @activity, @second_activity)",
+          "INSERT INTO dossiers (code, documenso_id, envelope_item_id, document_signed, hasAlreadyBeenBenevole, benevole_url, tuteur_url, benevole_civilite, benevole_name, benevole_name_usage, benevole_surname, benevole_birth_date, benevole_birth_city, benevole_birth_departement, benevole_birth_country, benevole_address1, benevole_address2, benevole_postal_code, benevole_city, benevole_country, benevole_email, benevole_phone, sos_civilite, sos_name, sos_surname, sos_phone, sos_address1, sos_address2, sos_postal_code, sos_city, sos_country, sos_email, sos_relation, tuteur_email, tuteur_name, activity, second_activity) VALUES (@code, @documenso_id, @envelope_item_id, @document_signed, @hasAlreadyBeenBenevole, @benevole_url, @tuteur_url, @benevole_civilite, @benevole_name, @benevole_name_usage, @benevole_surname, @benevole_birth_date, @benevole_birth_city, @benevole_birth_departement, @benevole_birth_country, @benevole_address1, @benevole_address2, @benevole_postal_code, @benevole_city, @benevole_country, @benevole_email, @benevole_phone, @sos_civilite, @sos_name, @sos_surname, @sos_phone, @sos_address1, @sos_address2, @sos_postal_code, @sos_city, @sos_country, @sos_email, @sos_relation, @tuteur_email, @tuteur_name, @activity, @second_activity)",
         );
 
         insert.run({
@@ -944,7 +944,7 @@ app.post("/dossiers", async (req: express.Request, res: express.Response) => {
               : "MAD",
           sos_name: req.body["answers"]["Nom de famille"],
           sos_surname: req.body["answers"]["Prénom"],
-          sos_telephone: req.body["answers"]["Numéro de téléphone"],
+          sos_phone: req.body["answers"]["Numéro de téléphone"],
           sos_address1:
             req.body["answers"]["Adresse : Numéro et voie"] === ""
               ? null

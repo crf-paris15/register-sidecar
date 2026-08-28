@@ -328,6 +328,9 @@ export const registerUser = async (userData: any) => {
     userData.benevole_country,
     userData.benevole_phone,
   );
+
+  console.log(userData.sos_country, userData.sos_phone);
+
   const sosPhone = getPhoneNumber(userData.sos_country, userData.sos_phone);
 
   // Get INSEE code based on the user's postal code
@@ -403,7 +406,7 @@ export const registerUser = async (userData: any) => {
       email: userData.benevole_email,
       tymCodeEmail: "PER",
       codCodeTelephone: benevolePhone.codeTelephone,
-      telephone: benevolePhone.phoneNumber,
+      telephone: benevolePhone.phoneNumber.replace(/\s/g, ""),
       tymCodeTelephone: "PER",
 
       pacCivCd: userData.sos_civilite,
@@ -418,7 +421,7 @@ export const registerUser = async (userData: any) => {
 
       pacEmail: userData.sos_email,
       pacCodCodeTelephone: sosPhone.codeTelephone,
-      pacTelephone: sosPhone.phoneNumber,
+      pacTelephone: sosPhone.phoneNumber.replace(/\s/g, ""),
     },
   };
 

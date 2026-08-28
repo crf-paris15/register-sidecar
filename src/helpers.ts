@@ -275,10 +275,8 @@ export const getPhoneNumber = (country: string, phone: string) => {
  */
 export const getCountryCode = (country: string) => {
   const countries = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf-8")).countries;
-  const countryData = countries.find(
-    (c: { name: string }) => c.name === country,
-  );
-  return countryData ? countryData.code : null;
+  const countryData = countries.find((c: { nom: string }) => c.nom === country);
+  return countryData ? countryData.id : null;
 };
 
 /**
