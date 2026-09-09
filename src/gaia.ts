@@ -431,6 +431,9 @@ export const registerUser = async (userData: any) => {
     },
   };
 
+  console.log("Post data to Gaia");
+  console.dir(postData, { depth: null, colors: true });
+
   // Make the POST request to Gaia to register the user
   const postContactRequest = await fetch(GAIA_URL + "contact", {
     method: "POST",
