@@ -199,7 +199,7 @@ const CORRESPONDENCE_TABLE_DOSSIER_BENEVOLE: CorrespondenceTable = {
   },
   "Ville naissance": {
     type: "var",
-    var: "Ton lieu de naissance",
+    var: "Ta ville de naissance",
   },
   "Pays naissance": {
     type: "var",
@@ -337,7 +337,7 @@ const CORRESPONDENCE_TABLE_DOSSIER_BENEVOLE: CorrespondenceTable = {
   },
   "Lieu de naissance du bénévole": {
     type: "var",
-    var: "Ton lieu de naissance",
+    var: "Ta ville de naissance",
   },
   "Nom et ville de la structure": {
     type: "hardcoded",
@@ -910,9 +910,9 @@ app.post("/dossiers", async (req: express.Request, res: express.Response) => {
           benevole_birth_date:
             req.body["answers"]["Ta date de naissance"] + "T00:00:00.000Z",
           benevole_birth_city:
-            req.body["answers"]["Ton lieu de naissance"] === ""
+            req.body["answers"]["Ta ville de naissance"] === ""
               ? null
-              : req.body["answers"]["Ton lieu de naissance"],
+              : req.body["answers"]["Ta ville de naissance"],
           benevole_birth_departement:
             req.body["answers"][
               "Ton département de naissance (pour la France)"
