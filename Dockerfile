@@ -50,4 +50,5 @@ COPY --from=builder --chown=hono:hono /app/package.json /app/package.json
 USER hono
 EXPOSE 3003
 
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["node", "/app/dist/app.ts"]
