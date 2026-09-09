@@ -28,6 +28,7 @@ ENV GIT_TAG=$GIT_TAG
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 hono
+RUN pnpx puppeteer browsers install
 
 COPY --from=builder --chown=hono:nodejs /app/node_modules /app/node_modules
 COPY --from=builder --chown=hono:nodejs /app/src /app/dist

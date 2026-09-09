@@ -12,33 +12,32 @@
   },
   "dependencies": {
     "@1password/sdk": "^0.5.0",
-    "@cantoo/pdf-lib": "^2.8.4",
+    "@cantoo/pdf-lib": "^2.9.2",
     "better-sqlite3": "^13.0.3",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "ini": "^7.0.0",
-    "libphonenumber-js": "^1.13.11",
-    "puppeteer": "^25.8.0",
+    "libphonenumber-js": "^1.13.12",
+    "puppeteer": "^25.10.0",
     "totp-generator": "^2.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/express": "^5.0.6",
-    "@types/node": "^26.2.0",
-    "@typescript-eslint/eslint-plugin": "^8.67.0",
-    "@typescript-eslint/parser": "^8.67.0",
-    "eslint": "^10.8.1",
+    "@types/node": "^24.13.3",
+    "@typescript-eslint/eslint-plugin": "^8.70.0",
+    "@typescript-eslint/parser": "^8.70.0",
+    "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
     "jiti": "^2.7.0",
     "nodemon": "^3.1.14",
     "prettier": "3.9.6",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.13",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.67.0"
   },
   "engines": {
     "node": "24"
   },
-  "packageManager": "pnpm@11.23.0",
+  "packageManager": "pnpm@12.3.4",
   "type": "module"
 }
