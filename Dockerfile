@@ -3,12 +3,13 @@ FROM node:24-bookworm-slim AS base
 # ------------------------- BASE -------------------------
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 RUN corepack enable pnpm
 
 # ------------------------- BUILDER -------------------------
 FROM base AS builder
+
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
@@ -31,12 +32,16 @@ WORKDIR /app
 ARG GIT_TAG
 ENV GIT_TAG=$GIT_TAG
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    unzip \
-  && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get install -y wget gnupg \
+    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-freefont-ttf libxss1 \
+      --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN useradd --system --uid 1001 --create-home hono
-RUN pnpx puppeteer browsers install chrome
 
 COPY --from=builder --chown=hono:hono /app/node_modules /app/node_modules
 COPY --from=builder --chown=hono:hono /app/src /app/dist

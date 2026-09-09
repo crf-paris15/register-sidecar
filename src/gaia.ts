@@ -177,6 +177,7 @@ const getGaiaCookiesFromPuppeteer = async () => {
   const browser = await puppeteer.launch({
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    executablePath: "google-chrome-stable",
   });
   const page = await browser.newPage();
 
