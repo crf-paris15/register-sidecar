@@ -280,17 +280,14 @@ export const getCountryCode = (country: string) => {
 };
 
 /**
- * Retrieves the department code for a given department name from the configuration file.
- *
- * @param department The name of the department
- * @returns The department code if found, otherwise null
+ * Formats a string by replacing hyphens with spaces, removing accents, and converting to uppercase.
+ * @param str The string to format
+ * @returns The formatted string
  */
-export const getDepartmentCode = (department: string) => {
-  const departements = JSON.parse(
-    fs.readFileSync(CONFIG_FILE, "utf-8"),
-  ).departements;
-  const departmentData = departements.find(
-    (d: { nom: string }) => d.nom === department,
-  );
-  return departmentData ? departmentData.code : null;
+export const formatString = (str: string) => {
+  return str
+    .replace(/-/g, " ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
 };

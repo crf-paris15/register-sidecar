@@ -1,22 +1,11 @@
 import puppeteer from "puppeteer";
 import sdk from "@1password/sdk";
 import { TOTP } from "totp-generator";
-import fs from "fs";
-import {
-  getPhoneNumber,
-  getCountryCode,
-  getDepartmentCode,
-} from "./helpers.ts";
+import { getPhoneNumber, getCountryCode, formatString } from "./helpers.ts";
 
 type ActivityCorrespondenceTable = {
-  [key: string]: {
-    id?: string;
-    label?: string;
-    checked?: boolean;
-  }[];
+  [key: string]: string[];
 };
-
-const CONFIG_FILE = process.env.CONFIG_FILE || "";
 
 const OP_SERVICE_ACCOUNT_TOKEN = process.env.OP_SERVICE_ACCOUNT_TOKEN || "";
 const OP_USER_REF = "op://register-sidecar/CRF/username";
@@ -29,142 +18,42 @@ const OP_CLIENT = await sdk.createClient({
   integrationVersion: "1.0.0",
 });
 
-const GAIA_URL = "https://gaia.croix-rouge.fr/crf-benevoles/";
-const INSEE_URL = "https://geo.api.gouv.fr/";
-
 const ACTIVITY_CORRESPONDENCE_TABLE: ActivityCorrespondenceTable = {
-  "Accompagnement scolaire": [
-    {
-      id: "act9",
-      label: "Apprentissage des savoirs",
-      checked: true,
-    },
-  ],
-  "Action culturelle": [
-    {
-      id: "act95",
-      label: "Acc\u00e8s \u00e0 la culture et aux loisirs",
-      checked: true,
-    },
-  ],
-  "Aide aux personnes agées": [
-    {
-      id: "act28",
-      label: "Actions aupr\u00e8s des personnes \u00e2g\u00e9es",
-      checked: true,
-    },
-  ],
-  Communication: [
-    {
-      id: "act46",
-      label: "D\u00e9veloppement associatif",
-      checked: true,
-    },
-  ],
-  "DIH (Droit International Humanitaire)": [
-    {
-      id: "act93",
-      label: "Droit international humanitaire",
-      checked: true,
-    },
-  ],
-  "Épicerie solidaire": [
-    {
-      id: "act99",
-      label: "Aide Alimentaire",
-      checked: true,
-    },
-  ],
-  "FLE (Français Langue Étrangère)": [
-    {
-      id: "act9",
-      label: "Apprentissage des savoirs",
-      checked: true,
-    },
-  ],
-  "Inclusion numérique": [
-    {
-      id: "act100",
-      label: "Inclusion num\u00e9rique",
-      checked: true,
-    },
-  ],
-  Maraudes: [
-    {
-      id: "act6",
-      label: "Samu Social, maraudes, \u00e9quipes mob. - Op\u00e9rations",
-      checked: true,
-    },
-  ],
+  "Accompagnement scolaire": ["Apprentissage des savoirs"],
+  "Action culturelle": ["Accès à la culture et aux loisirs"],
+  "Aide aux personnes agées": ["Actions auprès des personnes âgées"],
+  Communication: ["Développement associatif"],
+  "DIH (Droit International Humanitaire)": ["Droit international humanitaire"],
+  "Épicerie solidaire": ["Aide Alimentaire"],
+  "FLE (Français Langue Étrangère)": ["Apprentissage des savoirs"],
+  "Inclusion numérique": ["Inclusion numérique"],
+  Maraudes: ["Samu Social, maraudes, équipes mob. - Opérations"],
   "PAEO (Permanence d'Accueil d'Écoute et d'Orientation)": [
-    {
-      id: "act39",
-      label: "Accueil et orientation",
-      checked: true,
-    },
+    "Accueil et orientation",
   ],
   "RLF (Rétablissement des Liens Familiaux)": [
-    {
-      id: "act75",
-      label: "Action de r\u00e9tablissement des liens familiaux",
-      checked: true,
-    },
+    "Action de rétablissement des liens familiaux",
   ],
-  "Urgence et Secourisme": [
-    {
-      id: "act74",
-      label: "Corps de R\u00e9serve de l'Urgence",
-      checked: true,
-    },
-    {
-      id: "act19",
-      label: "Postes de secours",
-      checked: true,
-    },
-    {
-      id: "act65",
-      label: "R\u00e9seau de secours",
-      checked: true,
-    },
-    {
-      id: "act21",
-      label: "Urgence et autres op\u00e9rations",
-      checked: true,
-    },
-  ],
+  "Urgence et Secourisme": ["Urgence et Secourisme"],
 };
 
 /**
- * Saves the provided cookies to a JSON file.
- * @param cookies - The cookies to save.
- */
-const saveCookiesToJsonFile = (cookies: any[]) => {
-  const content = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf-8"));
-  content.cookies = Object.fromEntries(
-    cookies.map((cookie) => [cookie.name, cookie.value]),
-  );
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(content), "utf-8");
-};
-
-/**
- * Retrieves the Gaia cookies from the JSON file.
- * @returns An array of cookies with their names and values.
- */
-const getGaiaCookiesFromJsonFile = (): any[] => {
-  try {
-    return JSON.parse(fs.readFileSync(CONFIG_FILE, "utf-8")).cookies || [];
-  } catch (error) {
-    console.error("Error reading cookies from JSON file: ", error);
-    return [];
-  }
-};
-
-/**
- * Simulates a login flow to Okta using Puppeteer and retrieves the session cookies for Gaia.
+ * Simulates a login flow to Okta and fill the registration form on Gaia using Puppeteer.
  * @async
- * @returns The session cookies.
+ * @param userData The data of the user to register on Gaia.
+ * @param birthDate The birth date of the benevole.
+ * @param benevolePhone The phone details of the benevole.
+ * @param sosPhone The phone details of the SOS contact.
+ * @param actions The list of actions the benevole is interested in.
+ * @returns The result of the registration process.
  */
-const getGaiaCookiesFromPuppeteer = async () => {
+const registerBenevoleOnGaia = async (
+  userData: any,
+  birthDate: string,
+  benevolePhone: any,
+  sosPhone: any,
+  actions: string[],
+) => {
   // Get the username, password, and TOTP secret from 1Password
   const username = await OP_CLIENT.secrets.resolve(OP_USER_REF);
   const password = await OP_CLIENT.secrets.resolve(OP_PASS_REF);
@@ -174,104 +63,357 @@ const getGaiaCookiesFromPuppeteer = async () => {
 
   // Launching Puppeteer browser
 
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-    ],
-    executablePath: "/usr/bin/google-chrome-stable",
-  });
+  const browser = await puppeteer.launch(
+    process.env.GIT_TAG
+      ? {
+          headless: true,
+          args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+          ],
+          executablePath: "/usr/bin/google-chrome-stable",
+        }
+      : {
+          headless: false,
+        },
+  );
   const page = await browser.newPage();
+  page.setDefaultTimeout(2500);
 
   // Browsing to Okta login page and performing the login flow
+
+  // ---------------------------- OKTA LOGIN ----------------------------
 
   try {
     console.log("Browsing to Okta login page...");
     await page.goto("https://connect.croix-rouge.fr", {
       waitUntil: "networkidle2",
+      timeout: 10000,
     });
 
     // Username
-    await page.waitForSelector('input[name="identifier"]', { visible: true });
-    await page.type('input[name="identifier"]', username);
+    await page.locator('input[name="identifier"]').fill(username);
 
     // Password
-    await page.type('input[name="credentials.passcode"]', password);
+    await page.locator('input[name="credentials.passcode"]').fill(password);
 
     // Remember me
-    await page.click('div[class="custom-checkbox"]');
+    await page.locator('div[class="custom-checkbox"]').click();
 
     // Submit
-    await page.click('input[type="submit"]');
-  } catch (error) {
-    console.error("Error during initial login: ", error);
-    await browser.close();
-    throw error;
-  }
+    await page.locator('input[type="submit"]').click();
 
-  // First authentication step successful, now handling TOTP provider selection if required
+    // First authentication step successful, now handling TOTP provider selection if required
 
-  console.log("First auth successful.");
+    console.log("First auth successful.");
 
-  try {
     console.log("Checking for TOTP provider selection step...");
-    await page.waitForSelector(
-      "::-p-aria(Sélectionnez Google Authenticator.)",
-      {
-        visible: true,
-        timeout: 5000,
-      },
-    );
-    await page.click("::-p-aria(Sélectionnez Google Authenticator.)");
-  } catch {
-    console.log("TOTP provider selection not required.");
-  }
+    await page.locator("::-p-aria(Sélectionnez Google Authenticator.)").click();
 
-  // Now handling the TOTP input step
-
-  try {
-    await page.waitForSelector('input[name="credentials.passcode"]', {
-      visible: true,
-      timeout: 5000,
-    });
+    // Now handling the TOTP input step
 
     const { otp } = await TOTP.generate(totpSecret ? totpSecret : "", {
       period: 30,
       digits: 6,
     });
 
-    await page.type('input[name="credentials.passcode"]', otp);
-    await page.click('input[type="submit"]');
+    await page.locator('input[name="credentials.passcode"]').fill(otp);
+    await page.locator('input[type="submit"]').click();
+
+    // Wait for navigation to complete after submitting the OTP
+    await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 10000 });
+
+    console.log("Auth successfull. Browsing to Gaia...");
+
+    console.log("Browsing to Gaia page...");
+    await page.goto("https://gaia.croix-rouge.fr/crf-benevoles/#", {
+      waitUntil: "networkidle2",
+      timeout: 10000,
+    });
+
+    // Click on Benevole button
+    await page.locator("::-p-aria(BÉNÉVOLE)").click();
+
+    // ---------------------------- FORM : PAGE 1 ----------------------------
+
+    console.log("Filling page 1...");
+
+    // Fill identity
+    await page
+      .locator('select[name="contactCreation.civCd"]')
+      .fill(userData.benevole_civilite);
+
+    // Fill Prenom
+    await page
+      .locator('input[id="contactCreation.prenom"]')
+      .fill(userData.benevole_surname);
+
+    // Fill Nom de naissance
+    await page
+      .locator('input[id="contactCreation.nomNaissance"]')
+      .fill(userData.benevole_name);
+
+    // Fill Nom d'Usage
+    if (userData.benevole_name_usage !== null) {
+      await page
+        .locator('input[id="contactCreation.nomUsage"]')
+        .fill(userData.benevole_name_usage);
+    }
+
+    // Fill Date de naissance
+    await page
+      .locator('input[id="contactCreation.dateNaissance"]')
+      .fill(birthDate);
+
+    // Click to close the date picker if it's open
+    await page.click("body");
+
+    // Fill Pays de naissance
+    await page
+      .locator('select[name="contactCreation.paysNaissanceCode"]')
+      .fill(getCountryCode(userData.benevole_birth_country));
+
+    // Fill Département de naissance and Ville de naissance
+
+    if (userData.benevole_birth_country === "FRANCE") {
+      // If France, fill the department of birth using the awesomplete input and click on the first suggestion. Then do the same for the city.
+
+      if (userData.benevole_birth_department !== null) {
+        await page
+          .locator('xpath/(//div[contains(@class, "awesomplete")])[1]//input')
+          .fill(userData.benevole_birth_departement);
+      }
+
+      await page
+        .locator('xpath/(//div[contains(@class, "awesomplete")])[1]//ul//li[1]')
+        .click();
+
+      await page
+        .locator('xpath/(//div[contains(@class, "awesomplete")])[2]//input')
+        .fill(userData.benevole_birth_city);
+
+      await page
+        .locator(
+          `xpath/((//div[contains(@class, "awesomplete")])[2]//ul//li//mark[contains(text(), "${formatString(userData.benevole_birth_city)}")])[1]`,
+        )
+        .click();
+    } else {
+      // If not France, fill the city of birth directly.
+      await page
+        .locator('input[id="contactCreation.villeNaissanceLabel"]')
+        .fill(userData.benevole_birth_city);
+    }
+
+    // First page done, proceed to the next step of the registration process.
+    await page.locator("::-p-aria(CONTINUER)").click();
+
+    // ---------------------------- FORM : PAGE 2 ----------------------------
+
+    console.log("Filling page 2...");
+
+    // Fill Numéro et voie
+    await page
+      .locator('input[id="contactCreation.numVoie"]')
+      .fill(userData.benevole_address1);
+
+    // Fill Complément d'adresse
+    if (userData.benevole_address2 !== null) {
+      await page
+        .locator('input[id="contactCreation.compltAdresse"]')
+        .fill(userData.benevole_address2);
+    }
+
+    // Fill Pays
+    await page
+      .locator('select[name="contactCreation.codePays"]')
+      .fill(getCountryCode(userData.benevole_country));
+
+    // Fill Code postal and Ville
+    if (userData.benevole_country === "FRANCE") {
+      // If France, fill the postal code using the awesomplete input
+      await page
+        .locator('xpath/(//div[contains(@class, "awesomplete")])[1]//input')
+        .fill(userData.benevole_postal_code);
+
+      // Click on the correct city
+      await page
+        .locator(
+          `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.benevole_city)}")])[1]`,
+        )
+        .click();
+    } else {
+      // Fill Postal code
+      await page
+        .locator('input[id="contactCreation.codePostal"]')
+        .fill(userData.benevole_postal_code);
+
+      // Fill City
+      await page
+        .locator('input[id="contactCreation.villeLabel"]')
+        .fill(userData.benevole_city);
+    }
+
+    // Fill Telephone
+    await page
+      .locator('select[name="contactCreation.tymCodeTelephone"]')
+      .fill("PER");
+
+    await page
+      .locator('select[name="contactCreation.codCodeTelephone"]')
+      .fill(benevolePhone.codeTelephone);
+
+    await page
+      .locator('input[id="contactCreation.telephone"]')
+      .fill(benevolePhone.phoneNumber.replace(/\s/g, ""));
+
+    // Fill email address
+    await page
+      .locator('select[name="contactCreation.tymCodeEmail"]')
+      .fill("PER");
+
+    await page
+      .locator('input[id="contactCreation.email"]')
+      .fill(userData.benevole_email);
+
+    // Second page done, proceed to the next step of the registration process.
+    await page.locator("::-p-aria(CONTINUER)").click();
+
+    // ---------------------------- FORM : PAGE 3 ----------------------------
+
+    console.log("Filling page 3...");
+
+    // Fill Civilité
+    await page
+      .locator('select[name="contactCreation.pacCivCd"]')
+      .fill(userData.sos_civilite);
+
+    // Fill Prénom
+    await page
+      .locator('input[id="contactCreation.pacPrenom"]')
+      .fill(userData.sos_surname);
+
+    // Fill Nom
+    await page
+      .locator('input[id="contactCreation.pacNom"]')
+      .fill(userData.sos_name);
+
+    // Fill Lien avec la personne
+    await page
+      .locator('select[name="contactCreation.pacParId"]')
+      .fill(userData.sos_relation.toString());
+
+    // Fill Numéro et voie
+    if (userData.sos_address1 !== null) {
+      await page
+        .locator('input[id="contactCreation.pacNumeroVoie"]')
+        .fill(userData.sos_address1);
+    }
+
+    // Fill Complément d'adresse
+    if (userData.sos_address2 !== null) {
+      await page
+        .locator('input[id="contactCreation.pacComplementAdresse"]')
+        .fill(userData.sos_address2);
+    }
+
+    // Fill Pays
+    await page
+      .locator('select[name="contactCreation.pacCodePays"]')
+      .fill(getCountryCode(userData.sos_country));
+
+    // Fill Code postal and Ville
+    if (userData.sos_country === "FRANCE") {
+      // If France, fill the postal code using the awesomplete input
+      await page
+        .locator('xpath/(//div[contains(@class, "awesomplete")])[1]//input')
+        .fill(userData.sos_postal_code);
+
+      // Click on the correct city
+      await page
+        .locator(
+          `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.sos_city)}")])[1]`,
+        )
+        .click();
+    } else {
+      // Fill Postal code
+      await page
+        .locator('input[id="contactCreation.pacCodePostal"]')
+        .fill(userData.sos_postal_code);
+
+      // Fill City
+      await page
+        .locator('input[id="contactCreation.pacVille"]')
+        .fill(userData.sos_city);
+    }
+
+    // Fill Telephone
+    await page
+      .locator('select[name="contactCreation.pacCodCodeTelephone"]')
+      .fill(sosPhone.codeTelephone);
+
+    await page
+      .locator('input[id="contactCreation.pacTelephone"]')
+      .fill(sosPhone.phoneNumber.replace(/\s/g, ""));
+
+    // Fill Email
+    if (userData.sos_email !== null) {
+      await page
+        .locator('input[id="contactCreation.pacEmail"]')
+        .fill(userData.sos_email);
+    }
+
+    // Third page done, proceed to the next step of the registration process.
+    await page.locator("::-p-aria(CONTINUER)").click();
+
+    // ---------------------------- FORM : PAGE 4 ----------------------------
+
+    console.log("Filling page 4...");
+
+    // Check the actions that the user is interested in
+    actions.forEach(async (action) => {
+      console.log(`Selecting action: ${action}`);
+      await page
+        .locator(
+          `xpath/(//span[contains(text(), "${action}")]/preceding-sibling::div//label//span[contains(@class, "mdl-checkbox__ripple-container")])[1]`,
+        )
+        .click();
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 2500)); // Wait for 2.5 seconds to ensure all actions are selected before proceeding
+
+    console.log("Form finished, submitting...");
+
+    // Fourth page done, proceed to the next step of the registration process.
+    await page.locator("::-p-aria(VALIDER)").click();
+
+    // ---------------------------- USER PAGE --------------------------------
+
+    await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 10000 });
+
+    console.log("Form submitted, extracting NIVOL...");
+
+    await new Promise((resolve) => setTimeout(resolve, 2500)); // Wait for 2.5 seconds to ensure all actions are selected before proceeding
+
+    // Extract NIVOL value
+    const nivolHandle = await page
+      .locator(
+        "xpath/html[@class='mdl-js']/body/div[1]/header/div[2]/div[@class='cartridge-benevole benevole']/span/span[3]",
+      )
+      .map((element) => element.textContent)
+      .wait();
+    const nivol = nivolHandle.trim();
+
+    console.log("Success, NIVOL is", nivol);
+    browser.close();
+
+    return nivol;
   } catch (error) {
-    console.error("Error during TOTP input: ", error);
+    console.error("Error during Puppeteer execution:", error);
     await browser.close();
-    throw error;
+    return false;
   }
-
-  // Wait for navigation to complete after submitting the OTP
-  await page.waitForNavigation({ waitUntil: "networkidle2" });
-
-  console.log("Auth successfull. Browsing to Gaia page to extract cookies...");
-
-  console.log("Browsing to Gaia page...");
-  await page.goto("https://gaia.croix-rouge.fr", {
-    waitUntil: "networkidle2",
-  });
-
-  // Extract cookies
-  const cookies = await browser.cookies();
-  await browser.close();
-
-  const gaiaCookies = cookies.filter(
-    (cookie) =>
-      cookie.domain.includes("gaia.croix-rouge.fr") &&
-      Array.from(cookie.name)[0] !== "_",
-  );
-
-  return gaiaCookies;
 };
 
 /**
@@ -281,192 +423,51 @@ const getGaiaCookiesFromPuppeteer = async () => {
  * @returns A boolean that indicates whether the user was successfully registered or not.
  */
 export const registerUser = async (userData: any) => {
-  // Get the Gaia cookies from the JSON file
-  let data = getGaiaCookiesFromJsonFile();
-  let cookiesString = Object.entries(data)
-    .map(
-      ([key, val]) => `${encodeURIComponent(key)}=${encodeURIComponent(val)}`,
-    )
-    .join("; ");
-
-  // We need to check if the user is already logged in by making a request to Gaia with the cookies.
-  // The request does not follow redirects, so if the response is 302, it means the user is not logged in (and is redirected to Okta auth) and needs to log in.
-  const request = await fetch(GAIA_URL, {
-    method: "GET",
-    headers: {
-      Cookie: cookiesString,
-    },
-    redirect: "manual",
-  });
-
-  if (request.status === 302) {
-    // The user is not logged in, so we need to log in and get the cookies from Puppeteer.
-
-    console.log(
-      "User is not logged in. Logging in with Puppeteer to get cookies.",
-    );
-
-    const newCookies = await getGaiaCookiesFromPuppeteer();
-    saveCookiesToJsonFile(newCookies);
-
-    data = getGaiaCookiesFromJsonFile();
-    cookiesString = Object.entries(data)
-      .map(
-        ([key, val]) => `${encodeURIComponent(key)}=${encodeURIComponent(val)}`,
-      )
-      .join("; ");
-  }
-
-  // ------- The user is logged in, so we can now make the request to register the user with the cookies. -------
-
   // Get the actions tree based on the user's activity and second activity
-  const actionsTree: ActivityCorrespondenceTable[string] =
-    ACTIVITY_CORRESPONDENCE_TABLE[userData.activity] || [];
+  const actions = ACTIVITY_CORRESPONDENCE_TABLE[userData.activity] || [];
 
   if (userData.second_activity) {
-    actionsTree.push(
+    actions.push(
       ...(ACTIVITY_CORRESPONDENCE_TABLE[userData.second_activity] || []),
     );
   }
 
-  // Set the phone number based on the user's country using libphonenumber-js
+  // Set the phone numbers based on the user's country using libphonenumber-js
   const benevolePhone = getPhoneNumber(
     userData.benevole_country,
     userData.benevole_phone,
   );
-
-  console.log(userData.sos_country, userData.sos_phone);
-
   const sosPhone = getPhoneNumber(userData.sos_country, userData.sos_phone);
 
-  // Get INSEE code based on the user's postal code
-  const inseeRequest = await fetch(
-    INSEE_URL +
-      "communes?codePostal=" +
-      encodeURIComponent(userData.benevole_postal_code).substring(0, 5) +
-      "&fields=code",
+  // Format birth date
+  const birthDate = new Date(userData.benevole_birth_date).toLocaleDateString(
+    "fr-FR",
     {
-      method: "GET",
+      timeZone: "UTC",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
     },
   );
 
-  const inseeData = (await inseeRequest.json()) as {
-    code: string;
-    nom: string;
-  }[];
-
-  // Get INSEE code based on the user's birth location postal code
-  const birthPostalCode =
-    getDepartmentCode(userData.benevole_birth_departement) === "2A" ||
-    getDepartmentCode(userData.benevole_birth_departement) === "2B"
-      ? "20000"
-      : getDepartmentCode(userData.benevole_birth_departement) +
-        (getDepartmentCode(userData.benevole_birth_departement).length === 2
-          ? "000"
-          : "00");
-
-  const inseeRequestBirth = await fetch(
-    INSEE_URL +
-      "communes?codePostal=" +
-      encodeURIComponent(birthPostalCode).substring(0, 5) +
-      "&fields=code",
-    {
-      method: "GET",
-    },
+  // Create the user on Gaia and retrieve the NIVOL number
+  const nivol = await registerBenevoleOnGaia(
+    userData,
+    birthDate,
+    benevolePhone,
+    sosPhone,
+    actions,
   );
 
-  const inseeDataBirth = (await inseeRequestBirth.json()) as {
-    code: string;
-    nom: string;
-  }[];
-
-  // Set the data to post to Gaia for user registration
-  const postData = {
-    actionsTree: actionsTree,
-    contactCreation: {
-      dateEntree: new Date().toISOString().split("T")[0] + "T00:00:00.000Z",
-      strId: 903,
-
-      civCd: userData.benevole_civilite,
-      nomNaissance: userData.benevole_name,
-      nomUsage: userData.benevole_name_usage,
-      prenom: userData.benevole_surname,
-      dateNaissance: userData.benevole_birth_date,
-      villeNaissance: userData.benevole_birth_city,
-      codeDepartementNaissance: getDepartmentCode(
-        userData.benevole_birth_departement,
-      ),
-      codePostalNaissance: birthPostalCode,
-      codeInseeNaissance: inseeDataBirth[0]?.code || "75056",
-      departementNaissance: userData.benevole_birth_departement,
-      paysNaissanceCode: getCountryCode(userData.benevole_birth_country),
-      paysNaissance: userData.benevole_birth_country,
-      numVoie: userData.benevole_address1,
-      compltAdresse: userData.benevole_address2,
-      codePostal: userData.benevole_postal_code,
-      codeInsee: inseeData[0]?.code || "75056",
-      ville: userData.benevole_city,
-      pays: userData.benevole_country,
-      codePays: getCountryCode(userData.benevole_country),
-
-      email: userData.benevole_email,
-      tymCodeEmail: "PER",
-      codCodeTelephone: benevolePhone.codeTelephone,
-      telephone: benevolePhone.phoneNumber.replace(/\s/g, ""),
-      tymCodeTelephone: "PER",
-
-      pacCivCd: userData.sos_civilite,
-      pacNom: userData.sos_name,
-      pacPrenom: userData.sos_surname,
-      pacNumeroVoie: userData.sos_address1,
-      pacComplementAdresse: userData.sos_address2,
-      pacCodePostal: userData.sos_postal_code,
-      pacVille: userData.sos_city,
-      pacPaysCode: getCountryCode(userData.sos_country),
-      pacParId: userData.sos_relation,
-
-      pacEmail: userData.sos_email,
-      pacCodCodeTelephone: sosPhone.codeTelephone,
-      pacTelephone: sosPhone.phoneNumber.replace(/\s/g, ""),
-    },
-  };
-
-  console.log("Post data to Gaia");
-  console.dir(postData, { depth: null, colors: true });
-
-  // Make the POST request to Gaia to register the user
-  const postContactRequest = await fetch(GAIA_URL + "contact", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Cookie: cookiesString,
-    },
-    body: JSON.stringify(postData),
-  });
-
-  const responseData = (await postContactRequest.json()) as {
-    [key: string]: any;
-  };
-
-  console.log("Response from Gaia");
-  console.dir(responseData, { depth: null, colors: true });
-
-  // Check the response status and log the result
-  if (postContactRequest.status === 200) {
-    console.log("User registered successfully.");
-
-    return {
-      success: true,
-      nivol: responseData.cobIdnivol,
-    };
-  } else {
-    console.error(
-      `Failed to register user. Status: ${postContactRequest.status}`,
-    );
-
+  if (!nivol) {
     return {
       success: false,
-      nivol: "",
+      nivol: "???",
+    };
+  } else {
+    return {
+      success: true,
+      nivol: nivol,
     };
   }
 };

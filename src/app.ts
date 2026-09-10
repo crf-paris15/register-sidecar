@@ -1272,8 +1272,6 @@ app.get("/thanks", (_: express.Request, res: express.Response) => {
 // ----- Version ------------------------------------------------------------
 
 app.get("/version", (_: express.Request, res: express.Response) => {
-  registerUser(null);
-
   res.status(200).send(VERSION);
 });
 
