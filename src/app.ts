@@ -888,7 +888,9 @@ app.post("/dossiers", async (req: express.Request, res: express.Response) => {
               : recipients.find(
                   (r) =>
                     r.email ===
-                    req.body["answers"]["Email personnel"].toLowerCase(),
+                    (
+                      req.body["answers"]["Email personnel"] as string
+                    ).toLowerCase(),
                 )?.signingUrl || "",
           tuteur_url:
             req.body["answers"]["Email personnel"] ===
@@ -899,7 +901,9 @@ app.post("/dossiers", async (req: express.Request, res: express.Response) => {
               : recipients.find(
                   (r) =>
                     r.email ===
-                    req.body["answers"]["Adresse mail"].toLowerCase(),
+                    (
+                      req.body["answers"]["Adresse mail"] as string
+                    ).toLowerCase(),
                 )?.signingUrl || null,
 
           // Benevole data
