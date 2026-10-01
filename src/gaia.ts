@@ -196,7 +196,7 @@ const registerBenevoleOnGaia = async (
 
       await page
         .locator(
-          `xpath/((//div[contains(@class, "awesomplete")])[2]//ul//li//mark[contains(text(), "${formatString(userData.benevole_birth_city)}")])[1]`,
+          `xpath/(//mark[contains(text(), "${formatString(userData.benevole_birth_city)}")])[1]`,
         )
         .click();
     } else {
@@ -424,7 +424,8 @@ const registerBenevoleOnGaia = async (
  */
 export const registerUser = async (userData: any) => {
   // Get the actions tree based on the user's activity and second activity
-  const actions = ACTIVITY_CORRESPONDENCE_TABLE[userData.activity] || [];
+  // Clone the array: the table's entries must never be mutated in place, since they are shared across all calls to registerUser.
+  const actions = [...(ACTIVITY_CORRESPONDENCE_TABLE[userData.activity] || [])];
 
   if (userData.second_activity) {
     actions.push(

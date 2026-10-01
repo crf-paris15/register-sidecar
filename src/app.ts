@@ -886,7 +886,9 @@ app.post("/dossiers", async (req: express.Request, res: express.Response) => {
                 ? recipients[0].signingUrl
                 : ""
               : recipients.find(
-                  (r) => r.email === req.body["answers"]["Email personnel"],
+                  (r) =>
+                    r.email ===
+                    req.body["answers"]["Email personnel"].toLowerCase(),
                 )?.signingUrl || "",
           tuteur_url:
             req.body["answers"]["Email personnel"] ===
@@ -895,7 +897,9 @@ app.post("/dossiers", async (req: express.Request, res: express.Response) => {
                 ? recipients[1].signingUrl
                 : null
               : recipients.find(
-                  (r) => r.email === req.body["answers"]["Adresse mail"],
+                  (r) =>
+                    r.email ===
+                    req.body["answers"]["Adresse mail"].toLowerCase(),
                 )?.signingUrl || null,
 
           // Benevole data
@@ -1029,6 +1033,7 @@ app.get("/dossiers/:code", (req: express.Request, res: express.Response) => {
   const dossier = select.get(req.params.code);
 
   if (!dossier) {
+    console.log("Dossier not found");
     res.status(404).json({ message: "Dossier not found" });
     return;
   }
