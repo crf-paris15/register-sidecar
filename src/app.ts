@@ -888,9 +888,7 @@ app.post("/dossiers", async (req: express.Request, res: express.Response) => {
               : recipients.find(
                   (r) =>
                     r.email ===
-                    (
-                      req.body["answers"]["Email personnel"] as string
-                    ).toLowerCase(),
+                    req.body["answers"]["Email personnel"].toLowerCase(),
                 )?.signingUrl || "",
           tuteur_url:
             req.body["answers"]["Email personnel"] ===
@@ -898,13 +896,13 @@ app.post("/dossiers", async (req: express.Request, res: express.Response) => {
               ? recipients[1]?.signingUrl
                 ? recipients[1].signingUrl
                 : null
-              : recipients.find(
-                  (r) =>
-                    r.email ===
-                    (
-                      req.body["answers"]["Adresse mail"] as string
-                    ).toLowerCase(),
-                )?.signingUrl || null,
+              : req.body["answers"]["Adresse mail"]
+                ? recipients.find(
+                    (r) =>
+                      r.email ===
+                      req.body["answers"]["Adresse mail"].toLowerCase(),
+                  )?.signingUrl || null
+                : null,
 
           // Benevole data
           benevole_civilite:
