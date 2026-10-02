@@ -344,7 +344,7 @@ const registerBenevoleOnGaia = async (
 
       // Fill City
       await page
-        .locator('input[id="contactCreation.pacVille"]')
+        .locator('input[id="contactCreation.pacVilleLabel"]')
         .fill(userData.sos_city);
     }
 
