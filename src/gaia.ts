@@ -1,6 +1,7 @@
 import puppeteer from "puppeteer";
 import sdk from "@1password/sdk";
 import { TOTP } from "totp-generator";
+import fs from "fs";
 import { getPhoneNumber, getCountryCode, formatString } from "./helpers.ts";
 
 type ActivityCorrespondenceTable = {
@@ -424,6 +425,9 @@ const registerBenevoleOnGaia = async (
     return nivol;
   } catch (error) {
     console.error("Error during Puppeteer execution:", error);
+
+    let source = await page.content();
+    fs.writeFileSync(LOGS_PATH + "error_" + Date.now() + "_gaia.html", source);
 
     await page.screenshot({
       path: LOGS_PATH + "error_" + Date.now() + "_gaia.png",
