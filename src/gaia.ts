@@ -211,25 +211,29 @@ const registerBenevoleOnGaia = async (
       } catch {
         console.error("Error selecting city");
 
-        if (userData.benevole_birth_city.includes("SAINTE ")) {
+        if (formatString(userData.benevole_birth_city).includes("SAINTE ")) {
           await page
             .locator(
               `xpath/((//div[contains(@class, "awesomplete")])[2]//ul//li//mark[contains(text(), "${formatString(userData.benevole_birth_city).replace("SAINTE ", "STE ")}")])[1]`,
             )
             .click();
-        } else if (userData.benevole_birth_city.includes("SAINT ")) {
+        } else if (
+          formatString(userData.benevole_birth_city).includes("SAINT ")
+        ) {
           await page
             .locator(
               `xpath/((//div[contains(@class, "awesomplete")])[2]//ul//li//mark[contains(text(), "${formatString(userData.benevole_birth_city).replace("SAINT ", "ST")}")])[1]`,
             )
             .click();
-        } else if (userData.benevole_birth_city.includes("ST ")) {
+        } else if (formatString(userData.benevole_birth_city).includes("ST ")) {
           await page
             .locator(
               `xpath/((//div[contains(@class, "awesomplete")])[2]//ul//li//mark[contains(text(), "${formatString(userData.benevole_birth_city).replace("ST ", "SAINT ")}")])[1]`,
             )
             .click();
-        } else if (userData.benevole_birth_city.includes("STE ")) {
+        } else if (
+          formatString(userData.benevole_birth_city).includes("STE ")
+        ) {
           await page
             .locator(
               `xpath/((//div[contains(@class, "awesomplete")])[2]//ul//li//mark[contains(text(), "${formatString(userData.benevole_birth_city).replace("STE ", "SAINTE ")}")])[1]`,
@@ -288,25 +292,25 @@ const registerBenevoleOnGaia = async (
       } catch {
         console.error("Error selecting city");
 
-        if (userData.benevole_city.includes("SAINTE ")) {
+        if (formatString(userData.benevole_city).includes("SAINTE ")) {
           await page
             .locator(
               `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.benevole_city).replace("SAINTE ", "STE ")}")])[1]`,
             )
             .click();
-        } else if (userData.benevole_city.includes("SAINT ")) {
+        } else if (formatString(userData.benevole_city).includes("SAINT ")) {
           await page
             .locator(
               `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.benevole_city).replace("SAINT ", "ST")}")])[1]`,
             )
             .click();
-        } else if (userData.benevole_city.includes("ST ")) {
+        } else if (formatString(userData.benevole_city).includes("ST ")) {
           await page
             .locator(
               `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.benevole_city).replace("ST ", "SAINT ")}")])[1]`,
             )
             .click();
-        } else if (userData.benevole_city.includes("STE ")) {
+        } else if (formatString(userData.benevole_city).includes("STE ")) {
           await page
             .locator(
               `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.benevole_city).replace("STE ", "SAINTE ")}")])[1]`,
@@ -414,25 +418,25 @@ const registerBenevoleOnGaia = async (
       } catch {
         console.error("Error selecting city");
 
-        if (userData.sos_city.includes("SAINTE ")) {
+        if (formatString(userData.sos_city).includes("SAINTE ")) {
           await page
             .locator(
               `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.sos_city).replace("SAINTE ", "STE ")}")])[1]`,
             )
             .click();
-        } else if (userData.sos_city.includes("SAINT ")) {
+        } else if (formatString(userData.sos_city).includes("SAINT ")) {
           await page
             .locator(
               `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.sos_city).replace("SAINT ", "ST")}")])[1]`,
             )
             .click();
-        } else if (userData.sos_city.includes("ST ")) {
+        } else if (formatString(userData.sos_city).includes("ST ")) {
           await page
             .locator(
               `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.sos_city).replace("ST ", "SAINT ")}")])[1]`,
             )
             .click();
-        } else if (userData.sos_city.includes("STE ")) {
+        } else if (formatString(userData.sos_city).includes("STE ")) {
           await page
             .locator(
               `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.sos_city).replace("STE ", "SAINTE ")}")])[1]`,
