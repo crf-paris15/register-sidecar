@@ -6,3 +6,5 @@ ignoredBuiltDependencies:
   - ngrok
 minimumReleaseAgeExclude:
   - '@cantoo/pdf-lib@2.8.4'
+  - '@types/node@26.6.4'
+  - eslint@10.12.0
