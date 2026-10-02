@@ -202,11 +202,41 @@ const registerBenevoleOnGaia = async (
         .locator('xpath/(//div[contains(@class, "awesomplete")])[2]//input')
         .fill(formatString(userData.benevole_birth_city));
 
-      await page
-        .locator(
-          `xpath/((//div[contains(@class, "awesomplete")])[2]//ul//li//mark[contains(text(), "${formatString(userData.benevole_birth_city)}")])[1]`,
-        )
-        .click();
+      try {
+        await page
+          .locator(
+            `xpath/((//div[contains(@class, "awesomplete")])[2]//ul//li//mark[contains(text(), "${formatString(userData.benevole_birth_city)}")])[1]`,
+          )
+          .click();
+      } catch (error) {
+        if (userData.benevole_birth_city.includes("SAINTE ")) {
+          await page
+            .locator(
+              `xpath/((//div[contains(@class, "awesomplete")])[2]//ul//li//mark[contains(text(), "${formatString(userData.benevole_birth_city).replace("SAINTE ", "STE ")}")])[1]`,
+            )
+            .click();
+        } else if (userData.benevole_birth_city.includes("SAINT ")) {
+          await page
+            .locator(
+              `xpath/((//div[contains(@class, "awesomplete")])[2]//ul//li//mark[contains(text(), "${formatString(userData.benevole_birth_city).replace("SAINT ", "ST")}")])[1]`,
+            )
+            .click();
+        } else if (userData.benevole_birth_city.includes("ST ")) {
+          await page
+            .locator(
+              `xpath/((//div[contains(@class, "awesomplete")])[2]//ul//li//mark[contains(text(), "${formatString(userData.benevole_birth_city).replace("ST ", "SAINT ")}")])[1]`,
+            )
+            .click();
+        } else if (userData.benevole_birth_city.includes("STE ")) {
+          await page
+            .locator(
+              `xpath/((//div[contains(@class, "awesomplete")])[2]//ul//li//mark[contains(text(), "${formatString(userData.benevole_birth_city).replace("STE ", "SAINTE ")}")])[1]`,
+            )
+            .click();
+        } else {
+          throw new Error("Cannot mitigate benevole_birth_city name issue.");
+        }
+      }
     } else {
       // If not France, fill the city of birth directly.
       await page
@@ -246,11 +276,44 @@ const registerBenevoleOnGaia = async (
         .fill(userData.benevole_postal_code);
 
       // Click on the correct city
-      await page
-        .locator(
-          `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.benevole_city)}")])[1]`,
-        )
-        .click();
+
+      try {
+        await page
+          .locator(
+            `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.benevole_city)}")])[1]`,
+          )
+          .click();
+      } catch (error) {
+        console.log("Error clicking on the city:", error);
+
+        if (userData.benevole_city.includes("SAINTE ")) {
+          await page
+            .locator(
+              `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.benevole_city).replace("SAINTE ", "STE ")}")])[1]`,
+            )
+            .click();
+        } else if (userData.benevole_city.includes("SAINT ")) {
+          await page
+            .locator(
+              `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.benevole_city).replace("SAINT ", "ST")}")])[1]`,
+            )
+            .click();
+        } else if (userData.benevole_city.includes("ST ")) {
+          await page
+            .locator(
+              `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.benevole_city).replace("ST ", "SAINT ")}")])[1]`,
+            )
+            .click();
+        } else if (userData.benevole_city.includes("STE ")) {
+          await page
+            .locator(
+              `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.benevole_city).replace("STE ", "SAINTE ")}")])[1]`,
+            )
+            .click();
+        } else {
+          throw new Error("Cannot mitigate benevole_city name issue.");
+        }
+      }
     } else {
       // Fill Postal code
       await page
@@ -339,11 +402,42 @@ const registerBenevoleOnGaia = async (
         .fill(userData.sos_postal_code);
 
       // Click on the correct city
-      await page
-        .locator(
-          `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.sos_city)}")])[1]`,
-        )
-        .click();
+
+      try {
+        await page
+          .locator(
+            `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.sos_city)}")])[1]`,
+          )
+          .click();
+      } catch (error) {
+        if (userData.sos_city.includes("SAINTE ")) {
+          await page
+            .locator(
+              `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.sos_city).replace("SAINTE ", "STE ")}")])[1]`,
+            )
+            .click();
+        } else if (userData.sos_city.includes("SAINT ")) {
+          await page
+            .locator(
+              `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.sos_city).replace("SAINT ", "ST")}")])[1]`,
+            )
+            .click();
+        } else if (userData.sos_city.includes("ST ")) {
+          await page
+            .locator(
+              `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.sos_city).replace("ST ", "SAINT ")}")])[1]`,
+            )
+            .click();
+        } else if (userData.sos_city.includes("STE ")) {
+          await page
+            .locator(
+              `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.sos_city).replace("STE ", "SAINTE ")}")])[1]`,
+            )
+            .click();
+        } else {
+          throw new Error("Cannot mitigate sos_city name issue.");
+        }
+      }
     } else {
       // Fill Postal code
       await page
