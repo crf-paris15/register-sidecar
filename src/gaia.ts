@@ -426,7 +426,7 @@ const registerBenevoleOnGaia = async (
   } catch (error) {
     console.error("Error during Puppeteer execution:", error);
 
-    let source = await page.content();
+    const source = await page.content();
     fs.writeFileSync(LOGS_PATH + "error_" + Date.now() + "_gaia.html", source);
 
     await page.screenshot({
