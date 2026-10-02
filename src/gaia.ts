@@ -7,6 +7,8 @@ type ActivityCorrespondenceTable = {
   [key: string]: string[];
 };
 
+const LOGS_PATH = process.env.LOGS_PATH || "";
+
 const OP_SERVICE_ACCOUNT_TOKEN = process.env.OP_SERVICE_ACCOUNT_TOKEN || "";
 const OP_USER_REF = "op://register-sidecar/CRF/username";
 const OP_PASS_REF = "op://register-sidecar/CRF/password";
@@ -27,7 +29,7 @@ const ACTIVITY_CORRESPONDENCE_TABLE: ActivityCorrespondenceTable = {
   "Épicerie solidaire": ["Aide Alimentaire"],
   "FLE (Français Langue Étrangère)": ["Apprentissage des savoirs"],
   "Inclusion numérique": ["Inclusion numérique"],
-  Maraudes: ["Samu Social, maraudes, équipes mob. - Opérations"],
+  Maraudes: ["maraudes"],
   "PAEO (Permanence d'Accueil d'Écoute et d'Orientation)": [
     "Accueil et orientation",
   ],
@@ -422,6 +424,11 @@ const registerBenevoleOnGaia = async (
     return nivol;
   } catch (error) {
     console.error("Error during Puppeteer execution:", error);
+
+    await page.screenshot({
+      path: LOGS_PATH + "error_" + Date.now() + "_gaia.png",
+    });
+
     await browser.close();
     return false;
   }
