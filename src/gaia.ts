@@ -371,15 +371,26 @@ const registerBenevoleOnGaia = async (
 
     console.log("Filling page 4...");
 
+    await new Promise((resolve) => setTimeout(resolve, 2500)); // Wait for 2.5 seconds to ensure all actions are selected before proceeding
+
     // Check the actions that the user is interested in
-    actions.forEach(async (action) => {
-      console.log(`Selecting action: ${action}`);
+    console.log(`Selecting action: ${actions[0]}`);
+    await page
+      .locator(
+        `xpath/.//span[contains(normalize-space(text()), "${actions[0]}")]/preceding-sibling::div[@data-focus="input-checkbox-container"]//span[contains(@class, "mdl-checkbox__ripple-container")]`,
+      )
+      .click();
+
+    if (actions.length > 1) {
+      await new Promise((resolve) => setTimeout(resolve, 2500)); // Wait for 2.5 seconds to ensure all actions are selected before proceeding
+
+      console.log(`Selecting action: ${actions[1]}`);
       await page
         .locator(
-          `xpath/(//span[contains(text(), "${action}")]/preceding-sibling::div//label//span[contains(@class, "mdl-checkbox__ripple-container")])[1]`,
+          `xpath/.//span[contains(normalize-space(text()), "${actions[1]}")]/preceding-sibling::div[@data-focus="input-checkbox-container"]//span[contains(@class, "mdl-checkbox__ripple-container")]`,
         )
         .click();
-    });
+    }
 
     await new Promise((resolve) => setTimeout(resolve, 2500)); // Wait for 2.5 seconds to ensure all actions are selected before proceeding
 
