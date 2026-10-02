@@ -200,7 +200,7 @@ const registerBenevoleOnGaia = async (
 
       await page
         .locator('xpath/(//div[contains(@class, "awesomplete")])[2]//input')
-        .fill(userData.benevole_birth_city);
+        .fill(formatString(userData.benevole_birth_city));
 
       await page
         .locator(
