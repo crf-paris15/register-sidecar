@@ -196,7 +196,7 @@ const registerBenevoleOnGaia = async (
 
       await page
         .locator(
-          `xpath/(//mark[contains(text(), "${formatString(userData.benevole_birth_city)}")])[1]`,
+          `xpath/((//div[contains(@class, "awesomplete")])[2]//ul//li//mark[contains(text(), "${formatString(userData.benevole_birth_city)}")])[1]`,
         )
         .click();
     } else {
