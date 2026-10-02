@@ -30,7 +30,7 @@ const ACTIVITY_CORRESPONDENCE_TABLE: ActivityCorrespondenceTable = {
   "Épicerie solidaire": ["Aide Alimentaire"],
   "FLE (Français Langue Étrangère)": ["Apprentissage des savoirs"],
   "Inclusion numérique": ["Inclusion numérique"],
-  Maraudes: ["maraudes"],
+  Maraudes: ["Samu Social, maraudes, équipes mob. - Opérations"],
   "PAEO (Permanence d'Accueil d'Écoute et d'Orientation)": [
     "Accueil et orientation",
   ],
@@ -83,7 +83,12 @@ const registerBenevoleOnGaia = async (
         },
   );
   const page = await browser.newPage();
-  page.setDefaultTimeout(2500);
+  page.setDefaultTimeout(5000);
+  await page.setViewport({
+    width: 1920,
+    height: 1080,
+    deviceScaleFactor: 1,
+  });
 
   // Browsing to Okta login page and performing the login flow
 
@@ -137,7 +142,7 @@ const registerBenevoleOnGaia = async (
     });
 
     // Click on Benevole button
-    await page.locator("::-p-aria(BÉNÉVOLE)").click();
+    await page.locator('button[title="Bénévole"]').click();
 
     // ---------------------------- FORM : PAGE 1 ----------------------------
 
@@ -210,7 +215,7 @@ const registerBenevoleOnGaia = async (
     }
 
     // First page done, proceed to the next step of the registration process.
-    await page.locator("::-p-aria(CONTINUER)").click();
+    await page.locator('button[title="Continuer"]').click();
 
     // ---------------------------- FORM : PAGE 2 ----------------------------
 
@@ -281,7 +286,7 @@ const registerBenevoleOnGaia = async (
       .fill(userData.benevole_email);
 
     // Second page done, proceed to the next step of the registration process.
-    await page.locator("::-p-aria(CONTINUER)").click();
+    await page.locator('button[title="Continuer"]').click();
 
     // ---------------------------- FORM : PAGE 3 ----------------------------
 
@@ -368,39 +373,39 @@ const registerBenevoleOnGaia = async (
     }
 
     // Third page done, proceed to the next step of the registration process.
-    await page.locator("::-p-aria(CONTINUER)").click();
+    await page.locator('button[title="Continuer"]').click();
 
     // ---------------------------- FORM : PAGE 4 ----------------------------
 
     console.log("Filling page 4...");
 
-    await new Promise((resolve) => setTimeout(resolve, 2500)); // Wait for 2.5 seconds to ensure all actions are selected before proceeding
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second to ensure all actions are selected before proceeding
 
     // Check the actions that the user is interested in
     console.log(`Selecting action: ${actions[0]}`);
     await page
       .locator(
-        `xpath/.//span[contains(normalize-space(text()), "${actions[0]}")]/preceding-sibling::div[@data-focus="input-checkbox-container"]//span[contains(@class, "mdl-checkbox__ripple-container")]`,
+        `xpath///span[normalize-space(.)="${actions[0]}"]/preceding-sibling::div//label`,
       )
       .click();
 
     if (actions.length > 1) {
-      await new Promise((resolve) => setTimeout(resolve, 2500)); // Wait for 2.5 seconds to ensure all actions are selected before proceeding
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second to ensure all actions are selected before proceeding
 
       console.log(`Selecting action: ${actions[1]}`);
       await page
         .locator(
-          `xpath/.//span[contains(normalize-space(text()), "${actions[1]}")]/preceding-sibling::div[@data-focus="input-checkbox-container"]//span[contains(@class, "mdl-checkbox__ripple-container")]`,
+          `xpath///span[normalize-space(.)="${actions[1]}"]/preceding-sibling::div//label`,
         )
         .click();
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 2500)); // Wait for 2.5 seconds to ensure all actions are selected before proceeding
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second to ensure all actions are selected before proceeding
 
     console.log("Form finished, submitting...");
 
     // Fourth page done, proceed to the next step of the registration process.
-    await page.locator("::-p-aria(VALIDER)").click();
+    await page.locator('button[title="Valider"]').click();
 
     // ---------------------------- USER PAGE --------------------------------
 

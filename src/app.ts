@@ -999,14 +999,22 @@ app.post("/dossiers", async (req: express.Request, res: express.Response) => {
                 ],
         });
 
+        console.log("Dossier successfully registered");
         res.status(200).send("OK");
       } else {
+        console.log(
+          "Failed to register dossier, envelope/distribute was not 200",
+        );
         res.status(400).send("KO");
       }
     } else {
+      console.log(
+        "Failed to register dossier, missing envelope/:id was not 200",
+      );
       res.status(400).send("KO");
     }
   } else {
+    console.log("Failed to register dossier, envelope/create was not 200");
     res.status(400).send("KO");
   }
 });
