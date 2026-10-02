@@ -208,7 +208,9 @@ const registerBenevoleOnGaia = async (
             `xpath/((//div[contains(@class, "awesomplete")])[2]//ul//li//mark[contains(text(), "${formatString(userData.benevole_birth_city)}")])[1]`,
           )
           .click();
-      } catch (error) {
+      } catch {
+        console.error("Error selecting city");
+
         if (userData.benevole_birth_city.includes("SAINTE ")) {
           await page
             .locator(
@@ -283,8 +285,8 @@ const registerBenevoleOnGaia = async (
             `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.benevole_city)}")])[1]`,
           )
           .click();
-      } catch (error) {
-        console.log("Error clicking on the city:", error);
+      } catch {
+        console.error("Error selecting city");
 
         if (userData.benevole_city.includes("SAINTE ")) {
           await page
@@ -409,7 +411,9 @@ const registerBenevoleOnGaia = async (
             `xpath/((//div[contains(@class, "awesomplete")])[1]//ul//li[contains(text(), "${formatString(userData.sos_city)}")])[1]`,
           )
           .click();
-      } catch (error) {
+      } catch {
+        console.error("Error selecting city");
+
         if (userData.sos_city.includes("SAINTE ")) {
           await page
             .locator(
