@@ -483,6 +483,9 @@ const registerBenevoleOnGaia = async (
 
     await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second to ensure all actions are selected before proceeding
 
+    // Remove duplicates if any exist in the actions array
+    actions = [...new Set(actions)];
+
     // Check the actions that the user is interested in
     console.log(`Selecting action: ${actions[0]}`);
     await page
