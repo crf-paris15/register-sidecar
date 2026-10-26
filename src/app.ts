@@ -552,7 +552,9 @@ app.post("/adhesions", async (req: express.Request, res: express.Response) => {
         : "",
     decisionBureau:
       req.body["answers"]["Ma cotisation annuelle"] !=
-      "Je m’acquitte de ma cotisation annuelle à la Croix-Rouge française, d’un montant de 20 €"
+        "Je m’acquitte de ma cotisation annuelle à la Croix-Rouge française, d’un montant de 20 €" &&
+      req.body["answers"]["Ma situation"] !=
+        "Je décide de ne plus être adhérent(e) de la Croix-Rouge française"
         ? today.getDate().toString() +
           "/" +
           (today.getMonth() + 1).toString() +
