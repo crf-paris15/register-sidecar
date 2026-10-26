@@ -12,7 +12,7 @@ export type CorrespondenceTable = {
   [key: string]: {
     type: "var" | "hardcoded" | "equals" | "computed";
     var?: string;
-    value?: string;
+    value?: string | boolean;
   };
 };
 
@@ -345,6 +345,84 @@ const CORRESPONDENCE_TABLE_DOSSIER_BENEVOLE: CorrespondenceTable = {
   },
 };
 
+const CORRESPONDENCE_TABLE_ADHESION: CorrespondenceTable = {
+  Texte1: {
+    type: "var",
+    var: "Nom de famille",
+  },
+  Texte2: {
+    type: "var",
+    var: "Prénom",
+  },
+  Texte3: {
+    type: "var",
+    var: "Adresse mail",
+  },
+  Texte5: {
+    type: "var",
+    var: "NIVOL",
+  },
+  Texte4: {
+    type: "var",
+    var: "Adresse",
+  },
+  "Case à cocher14.0": {
+    type: "equals",
+    var: "Ma situation",
+    value: "Je souhaite devenir adhérent(e) de la Croix-Rouge française",
+  },
+  "Case à cocher14.1": {
+    type: "equals",
+    var: "Ma situation",
+    value: "Je souhaite rester adhérent(e) de la Croix-Rouge française",
+  },
+  "Case à cocher14.2": {
+    type: "equals",
+    var: "Ma situation",
+    value: "Je décide de ne plus être adhérent(e) de la Croix-Rouge française",
+  },
+  Date9_af_date: {
+    type: "computed",
+    var: "removeAdhesionDate",
+  },
+  "Case à cocher15.0": {
+    type: "hardcoded",
+    value: true,
+  },
+  Texte7: {
+    type: "hardcoded",
+    value: "Unité locale de Paris 15",
+  },
+  "Case à cocher16.0": {
+    type: "equals",
+    var: "Ma cotisation annuelle",
+    value:
+      "Je m’acquitte de ma cotisation annuelle à la Croix-Rouge française, d’un montant de 20 €",
+  },
+  "Case à cocher16.1": {
+    type: "equals",
+    var: "Ma cotisation annuelle",
+    value: "Je m’acquitte de ma cotisation annuelle au tarif réduit de 5 €",
+  },
+  Texte13: {
+    type: "hardcoded",
+    value: "5",
+  },
+  "Case à cocher16.2": {
+    type: "equals",
+    var: "Ma cotisation annuelle",
+    value: "Je demande une exonération totale de cotisation cette année",
+  },
+  Date10_af_date: {
+    type: "computed",
+    var: "decisionBureau",
+  },
+  Date12_af_date: {
+    type: "computed",
+    var: "today",
+  },
+};
+
 // Env vars
 
 const API_KEY = process.env.API_KEY || "";
@@ -418,6 +496,254 @@ db.prepare(
   )
 `,
 ).run();
+
+db.prepare(
+  `
+  CREATE TABLE IF NOT EXISTS adhesions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    NIVOL TEXT NOT NULL,
+    surname TEXT NOT NULL,
+    name TEXT NOT NULL,
+    documenso_id TEXT NOT NULL,
+    envelope_item_id TEXT NOT NULL,
+    document_signed INTEGER DEFAULT 0
+  )
+`,
+).run();
+
+// ----- New adhesion to fill and to send to Documenso ----------------------
+
+app.post("/adhesions", async (req: express.Request, res: express.Response) => {
+  console.log("POST /adhesions");
+
+  // Check Authorization and return a 401 if wrong
+
+  if (!verifySecret(req.headers["authorization"] as string, API_KEY)) {
+    console.log("Unauthorized");
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  // Open PDF templates
+
+  const adhesionTemplateFs = fs.readFileSync(
+    MEDIA_PATH + "AdhesionTemplate.pdf",
+  );
+
+  const adhesionTemplatePdf = await PDFDocument.load(adhesionTemplateFs);
+
+  // Prepare final document
+
+  const finalPdf = await PDFDocument.create();
+  const pdfsToMerge: Array<PDFDocument> = [];
+
+  // Compute needed values
+
+  const today = new Date();
+  const computed: ComputedValues = {
+    removeAdhesionDate:
+      req.body["answers"]["Ma situation"] ==
+      "Je décide de ne plus être adhérent(e) de la Croix-Rouge française"
+        ? today.getDate().toString() +
+          "/" +
+          (today.getMonth() + 1).toString() +
+          "/" +
+          today.getFullYear().toString()
+        : "",
+    decisionBureau:
+      req.body["answers"]["Ma cotisation annuelle"] !=
+      "Je m’acquitte de ma cotisation annuelle à la Croix-Rouge française, d’un montant de 20 €"
+        ? today.getDate().toString() +
+          "/" +
+          (today.getMonth() + 1).toString() +
+          "/" +
+          today.getFullYear().toString()
+        : "",
+    nameAndFirstname:
+      req.body["answers"]["Nom de famille"] +
+      " " +
+      req.body["answers"]["Prénom"],
+    today:
+      today.getDate().toString() +
+      "/" +
+      (today.getMonth() + 1).toString() +
+      "/" +
+      today.getFullYear().toString(),
+  };
+
+  // Fill adhesion form
+
+  const adhesionForm = adhesionTemplatePdf.getForm();
+
+  fillForm(
+    adhesionForm,
+    CORRESPONDENCE_TABLE_ADHESION,
+    req.body["answers"],
+    computed,
+    true,
+  );
+
+  adhesionForm.flatten();
+  pdfsToMerge.push(adhesionTemplatePdf);
+
+  // Merge all documents in one
+
+  for (const pdf of pdfsToMerge) {
+    const pageIndices = pdf.getPageIndices();
+    const copiedPages = await finalPdf.copyPages(pdf, pageIndices);
+    copiedPages.forEach((page) => finalPdf.addPage(page));
+  }
+
+  const pdfFinalBytes = await finalPdf.save();
+
+  // Prepare request to Documenso
+
+  const formData = new FormData();
+  const recipients = [
+    {
+      email: req.body["answers"]["Adresse mail"],
+      name: computed["nameAndFirstname"],
+      role: "SIGNER",
+      sendEmail: false,
+      fields: [
+        {
+          identifier: 0,
+          type: "DATE",
+          page: 1,
+          positionX: 13,
+          positionY: 60,
+          width: 18,
+          height: 3,
+        },
+        {
+          identifier: 0,
+          type: "SIGNATURE",
+          page: 1,
+          positionX: 13,
+          positionY: 68,
+          width: 20,
+          height: 7,
+        },
+      ],
+    },
+  ];
+
+  const payload = {
+    type: "DOCUMENT",
+    title: "Fiche annuelle d'adhésion de " + computed["nameAndFirstname"],
+    externalId: "Adhesion_" + computed["nameAndFirstname"],
+    visibility: "EVERYONE",
+    recipients: recipients,
+    meta: {
+      subject:
+        "Croix-Rouge française de Paris 15 - Signer votre fiche d'adhésion",
+      message: "Bonjour, merci de relire et de signer le document.",
+      redirectUrl: "https://dossier.crf.tools/thanksAdhesion",
+      distributionMethod: "NONE",
+    },
+  };
+
+  formData.append("payload", JSON.stringify(payload));
+  formData.append(
+    "files",
+    new File(
+      [new Blob([new Uint8Array(pdfFinalBytes)], { type: "application/pdf" })],
+      `Adhesion_${req.body["code"]}.pdf`,
+      {
+        type: "application/pdf",
+      },
+    ),
+  );
+
+  // Send the document to Documenso
+
+  const response = await fetch(DOCUMENSO_API_URL + "envelope/create", {
+    method: "POST",
+    headers: {
+      Authorization: DOCUMENSO_API_KEY,
+    },
+    body: formData,
+  });
+
+  if (response.status >= 200 && response.status < 400) {
+    const { id } = (await response.json()) as { id: string };
+
+    // Get the envelope item ID from Documenso
+
+    const responseEnvelope = await fetch(DOCUMENSO_API_URL + "envelope/" + id, {
+      method: "GET",
+      headers: {
+        Authorization: DOCUMENSO_API_KEY,
+      },
+    });
+
+    if (responseEnvelope.status >= 200 && responseEnvelope.status < 400) {
+      // Set the document to be signed
+
+      const jsonReponse = (await responseEnvelope.json()) as {
+        envelopeItems: Array<{ id: string }>;
+      };
+      const envelopeItemId = jsonReponse?.envelopeItems?.[0]?.id;
+
+      const secondResponse = await fetch(
+        DOCUMENSO_API_URL + "envelope/distribute",
+        {
+          method: "POST",
+          headers: {
+            Authorization: DOCUMENSO_API_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            envelopeId: id,
+          }),
+        },
+      );
+
+      if (secondResponse.status >= 200 && secondResponse.status < 400) {
+        // Get the signing URLs for each recipient
+
+        const { recipients } = (await secondResponse.json()) as {
+          recipients: Array<{ email: string; signingUrl: string }>;
+        };
+
+        const insert = db.prepare(
+          "INSERT INTO adhesions (NIVOL, surname, name, documenso_id, envelope_item_id, document_signed) VALUES (@NIVOL, @surname, @name, @documenso_id, @envelope_item_id, @document_signed)",
+        );
+
+        insert.run({
+          // Documenso
+          NIVOL: req.body["answers"]["NIVOL"],
+          surname: req.body["answers"]["Prénom"],
+          name: req.body["answers"]["Nom de famille"],
+          documenso_id: id,
+          envelope_item_id: envelopeItemId,
+          document_signed: 0,
+        });
+
+        console.log("Dossier successfully registered");
+        res.status(200).json({
+          url: recipients[0]?.signingUrl,
+          email: recipients[0]?.email,
+          surname: req.body["answers"]["Prénom"],
+          nivol: req.body["answers"]["NIVOL"],
+        });
+      } else {
+        console.log(
+          "Failed to register dossier, envelope/distribute was not 200",
+        );
+        res.status(400).send("KO");
+      }
+    } else {
+      console.log(
+        "Failed to register dossier, missing envelope/:id was not 200",
+      );
+      res.status(400).send("KO");
+    }
+  } else {
+    console.log("Failed to register dossier, envelope/create was not 200");
+    res.status(400).send("KO");
+  }
+});
 
 // ----- New dossier to fill and to send to Documenso -----------------------
 
@@ -525,6 +851,7 @@ app.post("/dossiers", async (req: express.Request, res: express.Response) => {
     CORRESPONDENCE_TABLE_DOSSIER_BENEVOLE,
     req.body["answers"],
     computed,
+    false,
   );
 
   const helvetica = await dossierBenevolePdf.embedFont(StandardFonts.Helvetica);
@@ -571,6 +898,7 @@ app.post("/dossiers", async (req: express.Request, res: express.Response) => {
     CORRESPONDENCE_TABLE_CHARTE_BENEVOLAT,
     req.body["answers"],
     computed,
+    false,
   );
 
   charteBenevolatForm.flatten();
@@ -588,6 +916,7 @@ app.post("/dossiers", async (req: express.Request, res: express.Response) => {
       CORRESPONDENCE_TABLE_AUTORISATION_PARTENTALE,
       req.body["answers"],
       computed,
+      false,
     );
 
     // Strike relevant parts of PDF
@@ -1051,6 +1380,38 @@ app.get("/dossiers/:code", (req: express.Request, res: express.Response) => {
   res.status(200).json(dossier);
 });
 
+// ----- Send data to send mails to sign ------------------------------------
+
+app.get("/adhesions/:NIVOL", (req: express.Request, res: express.Response) => {
+  console.log("GET /adhesions/" + req.params.NIVOL);
+
+  // Check Authorization and return a 401 if wrong
+
+  if (!verifySecret(req.headers["authorization"] as string, API_KEY)) {
+    console.log("Unauthorized");
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  if (!req.params.NIVOL) {
+    res.status(400).json({ message: "Missing NIVOL" });
+    return;
+  }
+
+  const select = db.prepare(
+    "SELECT * FROM adhesions WHERE NIVOL = ? ORDER BY id DESC LIMIT 1",
+  );
+  const adhesion = select.get(req.params.NIVOL);
+
+  if (!adhesion) {
+    console.log("Adhesion not found");
+    res.status(404).json({ message: "Adhesion not found" });
+    return;
+  }
+
+  res.status(200).json(adhesion);
+});
+
 // ----- Delete PDFs and data of a dossier ----------------------------------
 // This is used when a PDF is signed and the data is imported.
 // We also want to add the benevole phone number to lock.crf.tools.
@@ -1235,6 +1596,71 @@ app.delete(
   },
 );
 
+// ----- Delete PDFs and data of an adhesion --------------------------------
+
+app.delete(
+  "/adhesions/:NIVOL",
+  async (req: express.Request, res: express.Response) => {
+    console.log("DELETE /adhesions/" + req.params.NIVOL);
+
+    // Check Authorization and return a 401 if wrong
+
+    if (!verifySecret(req.headers["authorization"] as string, API_KEY)) {
+      console.log("Unauthorized");
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    if (!req.params.NIVOL) {
+      console.log("Missing NIVOL");
+      res.status(400).json({ message: "Missing NIVOL" });
+      return;
+    }
+
+    // Get data
+
+    const select = db.prepare(
+      "SELECT * FROM adhesions WHERE NIVOL = ? ORDER BY id DESC LIMIT 1",
+    );
+    const adhesion = select.get(req.params.NIVOL);
+
+    if (!adhesion) {
+      console.log("Adhesion not found");
+      res.status(404).json({ message: "Adhesion not found" });
+      return;
+    }
+
+    if (adhesion.document_signed === 1) {
+      // Remove from Documenso
+
+      const response = await fetch(DOCUMENSO_API_URL + "envelope/delete", {
+        method: "POST",
+        headers: {
+          Authorization: DOCUMENSO_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          envelopeId: adhesion.documenso_id,
+        }),
+      });
+
+      if (response.status < 200 || response.status >= 400) {
+        console.log("Failed to delete from Documenso");
+        res.status(400).json({ message: "Failed to delete from Documenso" });
+        return;
+      }
+
+      // Remove from DB
+
+      const del = db.prepare("DELETE FROM adhesions WHERE NIVOL = ?");
+      del.run(req.params.NIVOL);
+      res.status(200).send({
+        message: "Dossier deleted",
+      });
+    }
+  },
+);
+
 // ----- Mark a PDF as signed -----------------------------------------------
 
 app.post("/webhook", (req: express.Request, res: express.Response) => {
@@ -1255,22 +1681,45 @@ app.post("/webhook", (req: express.Request, res: express.Response) => {
       return;
     }
 
-    const select = db.prepare(
-      "SELECT COUNT(*) AS count FROM dossiers WHERE documenso_id = ? ORDER BY id DESC LIMIT 1",
-    );
+    if (req.body["payload"]["title"].includes("adhésion")) {
+      // Adhesion
 
-    const nb = select.get(req.body["payload"]["envelopeId"]);
+      const select = db.prepare(
+        "SELECT COUNT(*) AS count FROM adhesions WHERE documenso_id = ? ORDER BY id DESC LIMIT 1",
+      );
 
-    if (nb.count === 0) {
-      console.log("Dossier not found");
-      res.status(404).json({ message: "Dossier not found" });
-      return;
+      const nb = select.get(req.body["payload"]["envelopeId"]);
+
+      if (nb.count === 0) {
+        console.log("Dossier not found");
+        res.status(404).json({ message: "Dossier not found" });
+        return;
+      }
+
+      const update = db.prepare(
+        "UPDATE adhesions SET document_signed = 1 WHERE documenso_id = ? ORDER BY id DESC LIMIT 1",
+      );
+      update.run(req.body["payload"]["envelopeId"]);
+    } else if (req.body["payload"]["title"].includes("Dossier bénévole")) {
+      // Dossier benevole
+
+      const select = db.prepare(
+        "SELECT COUNT(*) AS count FROM dossiers WHERE documenso_id = ? ORDER BY id DESC LIMIT 1",
+      );
+
+      const nb = select.get(req.body["payload"]["envelopeId"]);
+
+      if (nb.count === 0) {
+        console.log("Dossier not found");
+        res.status(404).json({ message: "Dossier not found" });
+        return;
+      }
+
+      const update = db.prepare(
+        "UPDATE dossiers SET document_signed = 1 WHERE documenso_id = ? ORDER BY id DESC LIMIT 1",
+      );
+      update.run(req.body["payload"]["envelopeId"]);
     }
-
-    const update = db.prepare(
-      "UPDATE dossiers SET document_signed = 1 WHERE documenso_id = ? ORDER BY id DESC LIMIT 1",
-    );
-    update.run(req.body["payload"]["envelopeId"]);
 
     res.status(200).send("OK");
   } else {
@@ -1282,6 +1731,12 @@ app.post("/webhook", (req: express.Request, res: express.Response) => {
 
 app.get("/thanks", (_: express.Request, res: express.Response) => {
   res.status(200).sendFile(MEDIA_PATH + "thanks.html");
+});
+
+// ----- Thanks page adhesion -----------------------------------------------
+
+app.get("/thanksAdhesion", (_: express.Request, res: express.Response) => {
+  res.status(200).sendFile(MEDIA_PATH + "thanksAdhesion.html");
 });
 
 // ----- Version ------------------------------------------------------------

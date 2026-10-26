@@ -25,6 +25,7 @@ export const fillForm = (
   correspondenceTable: CorrespondenceTable,
   answers: Record<string, string>,
   computed: ComputedValues,
+  checkboxesValid: boolean,
 ) => {
   // Get all fields in the form and iterate over them
   form.getFields().forEach((field) => {
@@ -76,36 +77,38 @@ export const fillForm = (
 
         // Trick to force the checkbox to update its appearance after being checked and PDF flatten.
         if ((field as PDFCheckBox).isChecked()) {
-          (field as PDFCheckBox).updateAppearances(() => {
-            return {
-              normal: {
-                on: drawCheckBox({
-                  color: rgb(0, 0, 0.5),
-                  filled: true,
-                  x: 0 + 1,
-                  y: 0 + 1,
-                  width: 20,
-                  height: 20,
-                  thickness: 1.5,
-                  borderWidth: 2,
-                  markColor: rgb(0, 0, 0.5),
-                  borderColor: rgb(0, 0, 0.5),
-                }),
-                off: drawCheckBox({
-                  color: rgb(0, 0, 0.5),
-                  filled: true,
-                  x: 0 + 1,
-                  y: 0 + 1,
-                  width: 20,
-                  height: 20,
-                  thickness: 1.5,
-                  borderWidth: 2,
-                  markColor: rgb(0, 0, 0.5),
-                  borderColor: rgb(0, 0, 0.5),
-                }),
-              },
-            };
-          });
+          if (!checkboxesValid) {
+            (field as PDFCheckBox).updateAppearances(() => {
+              return {
+                normal: {
+                  on: drawCheckBox({
+                    color: rgb(0, 0, 0.5),
+                    filled: true,
+                    x: 0 + 1,
+                    y: 0 + 1,
+                    width: 20,
+                    height: 20,
+                    thickness: 1.5,
+                    borderWidth: 2,
+                    markColor: rgb(0, 0, 0.5),
+                    borderColor: rgb(0, 0, 0.5),
+                  }),
+                  off: drawCheckBox({
+                    color: rgb(0, 0, 0.5),
+                    filled: true,
+                    x: 0 + 1,
+                    y: 0 + 1,
+                    width: 20,
+                    height: 20,
+                    thickness: 1.5,
+                    borderWidth: 2,
+                    markColor: rgb(0, 0, 0.5),
+                    borderColor: rgb(0, 0, 0.5),
+                  }),
+                },
+              };
+            });
+          }
         }
       }
     }
